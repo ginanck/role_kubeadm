@@ -1,2 +1,50 @@
 ---
 # defaults file for role_k8s
+# k8s_releases:
+# for all version history: https://kubernetes.io/releases/
+# for all releases from GitHub: https://github.com/kubernetes/kubernetes/releases
+# for last 3 stable versions: https://www.downloadkubernetes.com
+# k8s_templates: https://github.com/kubernetes/release/tree/master/cmd/krel/templates/latest
+
+# kubernetes skew policy: https://kubernetes.io/releases/version-skew-policy/
+# version skew policy: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#version-skew-policy
+
+kubernetes_disable_firewall: true
+
+kubernetes_kubelet_config_path: /var/lib/kubelet
+kubernetes_kubelet_cgroup_driver: systemd
+kubernetes_kubenet_runtime_socket: unix:///run/containerd/containerd.sock
+
+kubernetes_sysctl_conf_file: "99-kubernetes.conf"
+kubernetes_sysctl_parameters:
+  - name: net.ipv4.ip_forward
+    value: 1
+  - name: vm.swappiness
+    value: 0
+  # Additional safe sysctls supported by Kubernetes
+  - name: net.ipv4.ip_local_reserved_ports
+    value: "30000-32767"  # Example: reserve ports for NodePort range
+  - name: net.ipv4.tcp_keepalive_time
+    value: 600            # Example: 10 minutes
+  - name: net.ipv4.tcp_fin_timeout
+    value: 20             # Example: 20 seconds
+  - name: net.ipv4.tcp_keepalive_intvl
+    value: 30             # Example: 30 seconds
+  - name: net.ipv4.tcp_keepalive_probes
+    value: 5              # Example: 5 probes
+  - name: net.ipv4.tcp_syncookies
+    value: 1              # Enable SYN cookies
+
+kubernetes_binary_dir: /opt/k8s/bin
+kubernetes_binary_link_path: /usr/local/bin
+kubernetes_systemd_path: /usr/lib/systemd/system
+
+kubernetes_release_version: v1.30.13    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
+kubernetes_release_arch: amd64
+
+kubernetes_release_type: stable         # "stable" or "latest" for k8s versions
+kubernetes_release_base_url: https://dl.k8s.io/release
+kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
+kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_type }}.txt"
+
+kubernetes_setup_type: binary           # "binary" or "repo" for installing from binaries or from Kubernetes repository

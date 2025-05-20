@@ -1,0 +1,83 @@
+---
+
+- name: Setup Kubernetes version
+  ansible.builtin.include_tasks: binary/setup-version.yml
+
+- name: Download and verify Kubernetes binaries
+  ansible.builtin.include_tasks: binary/setup-binary.yml
+  loop:
+    - kubeadm
+    - kubelet
+    - kubectl
+    - kubectl-convert
+  loop_control:
+    loop_var: binary_item
+    label: "{{ binary_item }}"
+
+- name: Set up alternatives for Kubernetes binaries
+  community.general.alternatives:
+    name: "kubeadm"
+    path: "{{ kubernetes_binary_dir }}/kubeadm-{{ kubernetes_release_version }}"
+    link: "{{ kubernetes_binary_link_path }}/kubeadm"
+    priority: "{{ ansible_date_time.epoch | int }}"
+    subcommands:
+      - name: "kubectl"
+        path: "{{ kubernetes_binary_dir }}/kubectl-{{ kubernetes_release_version }}"
+        link: "{{ kubernetes_binary_link_path }}/kubectl"
+      - name: "kubelet"
+        path: "{{ kubernetes_binary_dir }}/kubelet-{{ kubernetes_release_version }}"
+        link: "{{ kubernetes_binary_link_path }}/kubelet"
+
+- name: Ensure Kubernetes binaries are in PATH
+  template:
+    src: kubernetes.sh.j2
+    dest: /etc/profile.d/kubernetes.sh
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create directory for kubeadm configuration file
+  ansible.builtin.file:
+    path: "{{ kubernetes_systemd_path }}/kubelet.service.d"
+    state: directory
+    mode: '0755'
+
+- name: Install kubeadm configuration file from template
+  ansible.builtin.template:
+    src: "kubeadm/10-kubeadm.conf.j2"
+    dest: "{{ kubernetes_systemd_path }}/kubelet.service.d/10-kubeadm.conf"
+    mode: '0644'
+
+- name: Install kubelet environment file from template
+  ansible.builtin.template:
+    src: "kubelet/kubelet.env.j2"
+    dest: "/etc/sysconfig/kubelet"
+    mode: '0644'
+
+- name: Create directory for kubelet config file
+  ansible.builtin.file:
+    path: "{{ kubernetes_kubelet_config_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Create kubelet configuration file
+  ansible.builtin.template:
+    src: "kubelet/kubelet.config.j2"
+    dest: "{{ kubernetes_kubelet_config_path }}/config.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install kubelet service file from template
+  ansible.builtin.template:
+    src: "kubelet/kubelet.service.j2"
+    dest: "{{ kubernetes_systemd_path }}/kubelet.service"
+    mode: '0644'
+  notify: restart kubelet
+
+- name: Enable kubelet service
+  ansible.builtin.systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+    daemon_reload: yes

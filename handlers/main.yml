@@ -1,2 +1,9 @@
 ---
 # handlers file for role_k8s
+
+- name: restart kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

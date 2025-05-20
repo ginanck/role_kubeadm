@@ -1,0 +1,33 @@
+---
+
+- name: Create download directory if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ kubernetes_binary_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Set versioned binary name
+  ansible.builtin.set_fact:
+    versioned_binary_name: "{{ binary_item }}-{{ kubernetes_release_version }}"
+
+- name: Check if versioned binary already exists
+  ansible.builtin.stat:
+    path: "{{ kubernetes_binary_dir }}/{{ versioned_binary_name }}"
+    checksum_algorithm: sha256
+  register: binary_stat
+
+- name: Fetch SHA256 checksum for {{ binary_item }} from remote
+  ansible.builtin.uri:
+    url: "{{ kubernetes_release_download_url }}/{{ binary_item }}.sha256"
+    return_content: yes
+  register: sha256_remote
+  when: not binary_stat.stat.exists or binary_stat.stat.checksum is not defined
+
+- name: Download Kubernetes binary with fetched checksum validation for {{ binary_item }}
+  ansible.builtin.get_url:
+    url: "{{ kubernetes_release_download_url }}/{{ binary_item }}"
+    dest: "{{ kubernetes_binary_dir }}/{{ versioned_binary_name }}"
+    mode: '0755'
+    checksum: "sha256:{{ sha256_remote.content | default('') | trim }}"
+    force: no
+  when: not binary_stat.stat.exists or (sha256_remote.content is defined and binary_stat.stat.checksum != (sha256_remote.content | trim))

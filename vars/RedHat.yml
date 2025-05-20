@@ -1,0 +1,7 @@
+---
+
+kubernetes_prerequisite_packages:
+  - dnf-plugins-core
+  - yum-utils
+  - glibc
+  - conntrack

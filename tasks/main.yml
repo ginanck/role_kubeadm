@@ -1,2 +1,18 @@
 ---
 # tasks file for role_k8s
+
+- name: Install prerequisites
+  ansible.builtin.include_tasks: prerequisites.yml
+
+- name: Setup K8S
+  ansible.builtin.include_tasks: "{{ kubernetes_setup_type }}/main.yml"
+
+- name: Include master node tasks
+  include_tasks: setup-master.yml
+  when: inventory_hostname in groups['master']
+  tags: master
+
+- name: Include worker node tasks
+  include_tasks: setup-worker.yml
+  when: inventory_hostname in groups['worker']
+  tags: worker

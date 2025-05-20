@@ -1,0 +1,10 @@
+---
+
+kubernetes_prerequisite_packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - libc6
+  - conntrack

@@ -1,0 +1,7 @@
+---
+
+- name: Install prerequisites (RedHat family with yum)
+  ansible.builtin.yum:
+    name: "{{ kubernetes_prerequisite_packages }}"
+    state: present
+    update_cache: yes
