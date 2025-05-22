@@ -9,11 +9,46 @@
 # kubernetes skew policy: https://kubernetes.io/releases/version-skew-policy/
 # version skew policy: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#version-skew-policy
 
-kubernetes_disable_firewall: true
+kubernetes_cluster_init_config_path: /tmp
+kubernetes_cluster_init_config_local_advertise_address: 172.16.3.101
+kubernetes_cluster_init_config_local_advertise_port: 6443
+
+kubernetes_cluster_config_kubernetes_version: 1.30.13
+kubernetes_cluster_config_cluster_name: kubernetes
+kubernetes_cluster_config_networking_service_subnet: "10.96.0.0/12"
+kubernetes_cluster_config_networking_pod_subnet: "10.244.0.0/16"
+kubernetes_cluster_config_networking_dns_domain: cluster.local
+kubernetes_cluster_config_control_plane_endpoint_url: 172.16.2.81
+kubernetes_cluster_config_control_plane_endpoint_port: 6443
+kubernetes_cluster_config_api_server_extra_args:
+  - Node
+  - RBAC
+
+kubernetes_cluster_config_api_server_timeout_for_controlplane_seconds: "4m0s"
+kubernetes_cluster_config_controller_manager_extra_args:
+  bind-address: "0.0.0.0"
+  node-monitor-period: "5s"
+  node-monitor-grace-period: "15s"
+  secure-port: "10257"
+
+kubernetes_cluster_config_scheduler_extra_args:
+  bind-address: "0.0.0.0"
+  secure-port: "10259"
+
+kubernetes_cluster_config_etcd_local:
+  dataDir: "/var/lib/etcd"
+
+kubernetes_cluster_kubelet_cgroup_driver: systemd
+kubernetes_cluster_kubelet_fail_swap_on: false
+
+kubernetes_cluster_proxy_mode: ipvs
+kubernetes_cluster_proxy_ipvs_strict_arp: true
+
+kubernetes_cluster_pod_network_type: calico
 
 kubernetes_kubelet_config_path: /var/lib/kubelet
 kubernetes_kubelet_cgroup_driver: systemd
-kubernetes_kubenet_runtime_socket: unix:///run/containerd/containerd.sock
+kubernetes_kubelet_runtime_socket: unix:///run/containerd/containerd.sock
 
 kubernetes_sysctl_conf_file: "99-kubernetes.conf"
 kubernetes_sysctl_parameters:
@@ -36,10 +71,10 @@ kubernetes_sysctl_parameters:
     value: 1              # Enable SYN cookies
 
 kubernetes_binary_dir: /opt/k8s/bin
-kubernetes_binary_link_path: /usr/local/bin
+kubernetes_binary_link_path: /usr/bin
 kubernetes_systemd_path: /usr/lib/systemd/system
 
-kubernetes_release_version: v1.30.13    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
+kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}"    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
 kubernetes_release_arch: amd64
 
 kubernetes_release_type: stable         # "stable" or "latest" for k8s versions
@@ -48,3 +83,11 @@ kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernete
 kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_type }}.txt"
 
 kubernetes_setup_type: binary           # "binary" or "repo" for installing from binaries or from Kubernetes repository
+
+kubernetes_join_command_dir: "{{ playbook_dir }}/tmp"
+kubernetes_join_command_file_master: "master_join_command.sh"
+kubernetes_join_command_file_worker: "worker_join_command.sh"
+kubernetes_join_command_file_cert_key: "cluster_cert_key.txt"
+kubernetes_join_command_path_master: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_master }}"
+kubernetes_join_command_path_worker: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_worker }}"
+kubernetes_join_command_path_cert_key: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_cert_key }}"

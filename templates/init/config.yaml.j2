@@ -1,0 +1,63 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+nodeRegistration:
+  name: {{ ansible_hostname }}
+  criSocket: "{{ kubernetes_kubelet_runtime_socket }}"
+  taints:
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
+localAPIEndpoint:
+  advertiseAddress: {{ kubernetes_cluster_init_config_local_advertise_address }}
+  bindPort: {{ kubernetes_cluster_init_config_local_advertise_port }}
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: {{ kubernetes_cluster_config_kubernetes_version }}
+clusterName: {{ kubernetes_cluster_config_cluster_name }}
+networking:
+  serviceSubnet: "{{ kubernetes_cluster_config_networking_service_subnet }}"
+  podSubnet: "{{ kubernetes_cluster_config_networking_pod_subnet }}"
+  dnsDomain: "{{ kubernetes_cluster_config_networking_dns_domain }}"
+controlPlaneEndpoint: "{{ kubernetes_cluster_config_control_plane_endpoint_url }}:{{ kubernetes_cluster_config_control_plane_endpoint_port }}"
+apiServer:
+  extraArgs:
+    authorization-mode: "{{ kubernetes_cluster_config_api_server_extra_args | join(',') }}"
+  timeoutForControlPlane: {{ kubernetes_cluster_config_api_server_timeout_for_controlplane_seconds }}
+  certSANs:
+  - "{{ kubernetes_cluster_config_control_plane_endpoint_url }}"
+{% for master in groups['master'] %}
+  - "{{ hostvars[master]['ansible_default_ipv4']['address'] }}"
+{% endfor %}
+  - "kubernetes"
+  - "kubernetes.default"
+  - "kubernetes.default.svc"
+  - "kubernetes.default.svc.{{ kubernetes_cluster_config_networking_dns_domain }}"
+  - "127.0.0.1"
+controllerManager:
+  extraArgs:
+{% for key, value in kubernetes_cluster_config_controller_manager_extra_args.items() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+scheduler:
+  extraArgs:
+{% for key, value in kubernetes_cluster_config_scheduler_extra_args.items() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+etcd:
+  local:
+{% for key, value in kubernetes_cluster_config_etcd_local.items() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: {{ kubernetes_cluster_kubelet_cgroup_driver }}
+failSwapOn: {{ kubernetes_cluster_kubelet_fail_swap_on | bool | lower }}
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+mode: "{{ kubernetes_cluster_proxy_mode }}"
+{% if kubernetes_cluster_proxy_mode | default('iptables') %}
+ipvs:
+  strictARP: {{ kubernetes_cluster_proxy_ipvs_strict_arp | bool | lower }}
+{% endif %}

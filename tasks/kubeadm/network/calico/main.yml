@@ -1,0 +1,8 @@
+---
+
+- name: Install pod network add-on
+  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.0/manifests/calico.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: network_addon
+  changed_when: network_addon.rc == 0

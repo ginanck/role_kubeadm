@@ -1,0 +1,21 @@
+---
+
+- name: Wait for node to be ready
+  ansible.builtin.shell: kubectl get nodes | grep {{ ansible_hostname }} | grep " Ready "
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: node_ready
+  until: node_ready.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Wait for all kube-system pods to be ready
+  ansible.builtin.shell: kubectl get pods -n kube-system -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | grep -v false
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: kube_system_pods_ready
+  until: kube_system_pods_ready.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false

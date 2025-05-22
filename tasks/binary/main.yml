@@ -30,7 +30,7 @@
 
 - name: Ensure Kubernetes binaries are in PATH
   template:
-    src: kubernetes.sh.j2
+    src: "profiled/kubernetes.sh.j2"
     dest: /etc/profile.d/kubernetes.sh
     owner: root
     group: root

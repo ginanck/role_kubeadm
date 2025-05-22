@@ -1,0 +1,53 @@
+---
+
+- name: Determine node role and eligibility for joining
+  ansible.builtin.set_fact:
+    node_roles:
+      master: "{{ kubernetes_join_command_path_master }}"
+      worker: "{{ kubernetes_join_command_path_worker }}"
+    node_type: "{{ 'master' if inventory_hostname in groups['master'] else 'worker' if inventory_hostname in groups['worker'] else 'unknown' }}"
+    is_init_master: "{{ kubernetes_cluster_init_master | default(false) }}"
+    should_join: "{{ not (kubernetes_cluster_init_master | default(false)) and (inventory_hostname in groups['master'] or inventory_hostname in groups['worker']) }}"
+
+- name: Display node categorization
+  ansible.builtin.debug:
+    msg: "Node {{ inventory_hostname }} is a {{ node_type }} node and {{ 'will' if should_join else 'will not' }} join the cluster"
+
+- name: Join node to Kubernetes cluster
+  ansible.builtin.shell: "{{ lookup('file', node_roles[node_type]) }}"
+  when: 
+    - should_join
+    - node_type in node_roles
+  register: join_result
+
+- name: Display join command output
+  ansible.builtin.debug:
+    var: join_result.stdout_lines
+  when: join_result is defined and join_result.stdout_lines is defined
+
+- name: Wait for node to become ready
+  ansible.builtin.command: kubectl get nodes {{ inventory_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: node_status
+  until: node_status.stdout == "True"
+  retries: 10
+  delay: 10
+  when: should_join
+  delegate_to: "{{ hostvars | dict2items | selectattr('value.kubernetes_cluster_init_master', 'defined') | selectattr('value.kubernetes_cluster_init_master') | map(attribute='key') | first }}"
+  become: true
+
+- name: Display node status
+  ansible.builtin.debug:
+    msg: "Node {{ inventory_hostname }} has successfully joined the cluster and is in Ready state"
+  when: should_join and node_status.stdout == "True"
+
+- name: Display warning for unknown node type
+  ansible.builtin.debug:
+    msg: "Warning: Node {{ inventory_hostname }} has an unknown role. Not joining to cluster."
+  when: node_type == 'unknown'
+
+- name: Display info for init master
+  ansible.builtin.debug:
+    msg: "Node {{ inventory_hostname }} is the initial master node and has already been initialized."
+  when: is_init_master

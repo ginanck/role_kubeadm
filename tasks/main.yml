@@ -2,17 +2,64 @@
 # tasks file for role_k8s
 
 - name: Install prerequisites
-  ansible.builtin.include_tasks: prerequisites.yml
+  ansible.builtin.include_tasks: common/prerequisites.yml
 
 - name: Setup K8S
   ansible.builtin.include_tasks: "{{ kubernetes_setup_type }}/main.yml"
 
-- name: Include master node tasks
-  include_tasks: setup-master.yml
-  when: inventory_hostname in groups['master']
-  tags: master
+- name: Check if kubeadm has already been initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/.initialized
+  register: kubeadm_initialized
 
-- name: Include worker node tasks
-  include_tasks: setup-worker.yml
-  when: inventory_hostname in groups['worker']
-  tags: worker
+- name: Kubernetes cluster initialization
+  when:
+    - not kubeadm_initialized.stat.exists
+    - kubernetes_cluster_init_master is defined
+    - kubernetes_cluster_init_master | bool
+    - inventory_hostname in groups['master']
+  block:
+    - name: Pull required container images
+      ansible.builtin.include_tasks: kubeadm/pull.yml
+
+    - name: Initialize master node
+      ansible.builtin.include_tasks: kubeadm/init.yml
+
+    - name: Deploy cluster networking plugin
+      ansible.builtin.include_tasks: kubeadm/network/{{ kubernetes_cluster_pod_network_type }}/main.yml
+
+    - name: Create .kube directory for the current user
+      ansible.builtin.include_tasks: kubeadm/dirs.yml
+
+    - name: Create initialization marker file
+      ansible.builtin.include_tasks: kubeadm/marker.yml
+
+    - name: Check first master node status and pods
+      ansible.builtin.include_tasks: kubeadm/status.yml
+
+- name: Kubernetes cluster join nodes
+  when:
+    - not kubeadm_initialized.stat.exists
+    - not kubernetes_cluster_init_master is defined
+  block:
+    - name: Pull required container images
+      ansible.builtin.include_tasks: kubeadm/pull.yml
+
+    - name: Save join command for master and worker nodes
+      ansible.builtin.include_tasks: kubeadm/token.yml
+      when:
+        - kubernetes_cluster_init_master is defined
+        - kubernetes_cluster_init_master | bool
+        - inventory_hostname in groups['master']
+
+    - name: Join nodes to kubernetes cluster
+      ansible.builtin.include_tasks: kubeadm/join.yml
+
+    - name: Create .kube directory for the current user
+      ansible.builtin.include_tasks: kubeadm/dirs.yml
+
+    - name: Create initialization marker file
+      ansible.builtin.include_tasks: kubeadm/marker.yml
+
+    - name: Check node status and pods
+      ansible.builtin.include_tasks: kubeadm/status.yml

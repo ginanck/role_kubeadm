@@ -2,7 +2,7 @@
 
 - name: create sysctl configuration file for k8s
   ansible.builtin.template:
-    src: sysctl.conf.j2
+    src: sysctl/sysctl.conf.j2
     dest: "/etc/sysctl.d/{{ kubernetes_sysctl_conf_file }}"
     owner: root
     group: root
