@@ -20,6 +20,14 @@
     master_join_command: "{{ cluster_init_join_command }} --certificate-key {{ cluster_init_cert_key }} --control-plane"
     worker_join_command: "{{ cluster_init_join_command }} --certificate-key {{ cluster_init_cert_key }}"
 
+- name: Remove existing tmp directory in playbook_dir if it exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/tmp"
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  become: false
+
 - name: Ensure tmp directory exists in playbook_dir
   ansible.builtin.file:
     path: "{{ playbook_dir }}/tmp"
