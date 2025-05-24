@@ -48,7 +48,7 @@ kubernetes_cluster_pod_network_type: calico
 
 kubernetes_kubelet_config_path: /var/lib/kubelet
 kubernetes_kubelet_cgroup_driver: systemd
-kubernetes_kubelet_runtime_socket: unix:///run/containerd/containerd.sock
+kubernetes_kubelet_runtime_socket: /run/containerd/containerd.sock
 
 kubernetes_sysctl_conf_file: "99-kubernetes.conf"
 kubernetes_sysctl_parameters:
