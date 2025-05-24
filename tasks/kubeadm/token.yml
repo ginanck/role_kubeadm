@@ -1,51 +1,50 @@
 ---
 
-- name: Upload certificates
+- name: Upload certificates for node
   ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
-  register: certificate_key
+  when: groups['master'] | difference([init_master_node]) | length > 0
+  register: certificate_key_result
+  delegate_to: "{{ init_master_node }}"
+  run_once: true
 
-- name: Get join command for nodes
-  ansible.builtin.shell: |
-    export KUBECONFIG=/etc/kubernetes/admin.conf
-    kubeadm token create --print-join-command
-  register: join_command
-
-- name: Save join command and certificate key for nodes
+- name: Set certificate key for all master nodes
   ansible.builtin.set_fact:
-    cluster_init_cert_key: "{{ certificate_key.stdout_lines[-1] }}"
-    cluster_init_join_command: "{{ join_command.stdout }}"
+    master_cert_key: "{{ certificate_key_result.stdout_lines[-1] }}"
+  when: 
+    - certificate_key_result is defined
+    - certificate_key_result.stdout_lines is defined
+  run_once: true
+  delegate_to: localhost
+  delegate_facts: true
 
-- name: Save join command for master and worker nodes
+- name: Get join command for node
+  ansible.builtin.command: kubeadm token create --print-join-command
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: inventory_hostname != init_master_node
+  register: join_command_result
+  delegate_to: "{{ init_master_node }}"
+
+- name: Set join command for other master nodes
   ansible.builtin.set_fact:
-    master_join_command: "{{ cluster_init_join_command }} --certificate-key {{ cluster_init_cert_key }} --control-plane"
-    worker_join_command: "{{ cluster_init_join_command }} --certificate-key {{ cluster_init_cert_key }}"
+    master_node_join_command: "{{ join_command_result.stdout_lines[-1] }} --certificate-key {{ hostvars['localhost'].master_cert_key }} --control-plane"
+  when:
+    - inventory_hostname != init_master_node
+    - inventory_hostname in groups['master']
 
-- name: Remove existing tmp directory in playbook_dir if it exists
-  ansible.builtin.file:
-    path: "{{ playbook_dir }}/tmp"
-    state: absent
-  delegate_to: localhost
-  run_once: true
-  become: false
+- name: Display join command for other master nodes
+  ansible.builtin.debug:
+    msg: "{{ master_node_join_command }}"
+  when:
+    - inventory_hostname != init_master_node
+    - inventory_hostname in groups['master']
 
-- name: Ensure tmp directory exists in playbook_dir
-  ansible.builtin.file:
-    path: "{{ playbook_dir }}/tmp"
-    state: directory
-    mode: '0755'
-  delegate_to: localhost
-  run_once: true
-  become: false
+- name: Set join command for worker nodes
+  ansible.builtin.set_fact:
+    worker_node_join_command: "{{ join_command_result.stdout_lines[-1] }}"
+  when: inventory_hostname in groups['worker']
 
-- name: Save join commands to files in tmp folder
-  ansible.builtin.copy:
-    content: "{{ item.content }}"
-    dest: "{{ playbook_dir }}/tmp/{{ item.filename }}"
-    mode: '0600'
-  delegate_to: localhost
-  run_once: true
-  become: false
-  loop:
-    - { content: "{{ master_join_command }}", filename: "{{ kubernetes_join_command_file_master }}" }
-    - { content: "{{ worker_join_command }}", filename: "{{ kubernetes_join_command_file_worker }}" }
-    - { content: "{{ cluster_init_cert_key }}", filename: "{{ kubernetes_join_command_file_cert_key }}" }
+- name: Display join command for worker nodes
+  ansible.builtin.debug:
+    msg: "{{ worker_node_join_command }}"
+  when: inventory_hostname in groups['worker']

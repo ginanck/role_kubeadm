@@ -12,8 +12,8 @@
         validate_certs: no
         timeout: 15
       register: stable_version
-      retries: 5
-      delay: 5
+      retries: 30
+      delay: 30
       until: stable_version is succeeded
 
     - name: Set release to latest stable version

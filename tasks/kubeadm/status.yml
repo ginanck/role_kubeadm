@@ -1,21 +1,22 @@
 ---
 
-- name: Wait for node to be ready
-  ansible.builtin.shell: kubectl get nodes | grep {{ ansible_hostname }} | grep " Ready "
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  register: node_ready
-  until: node_ready.rc == 0
-  retries: 30
-  delay: 10
-  changed_when: false
+- name: Get node hostname
+  ansible.builtin.command: hostname
+  register: node_hostname
+  become: true
 
-- name: Wait for all kube-system pods to be ready
-  ansible.builtin.shell: kubectl get pods -n kube-system -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | grep -v false
+- name: Wait for node to become ready
+  ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: kube_system_pods_ready
-  until: kube_system_pods_ready.rc == 0
+  register: node_status
+  until: node_status.stdout == "True"
   retries: 30
-  delay: 10
-  changed_when: false
+  delay: 30
+  become: true
+  delegate_to: "{{ init_master_node }}"
+
+- name: Display node status
+  ansible.builtin.debug:
+    msg: "Node {{ node_hostname.stdout }} has successfully joined the cluster and is in Ready state"
+  when: node_status.stdout == "True"

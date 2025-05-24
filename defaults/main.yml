@@ -85,9 +85,4 @@ kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernete
 kubernetes_setup_type: binary           # "binary" or "repo" for installing from binaries or from Kubernetes repository
 
 kubernetes_join_command_dir: "{{ playbook_dir }}/tmp"
-kubernetes_join_command_file_master: "master_join_command.sh"
-kubernetes_join_command_file_worker: "worker_join_command.sh"
-kubernetes_join_command_file_cert_key: "cluster_cert_key.txt"
-kubernetes_join_command_path_master: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_master }}"
-kubernetes_join_command_path_worker: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_worker }}"
-kubernetes_join_command_path_cert_key: "{{ kubernetes_join_command_dir }}/{{ kubernetes_join_command_file_cert_key }}"
+kubernetes_join_command_cert: "cluster_cert_key.txt"
