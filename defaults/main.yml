@@ -13,7 +13,7 @@ kubernetes_cluster_init_config_path: /tmp
 kubernetes_cluster_init_config_local_advertise_address: 172.16.3.101
 kubernetes_cluster_init_config_local_advertise_port: 6443
 
-kubernetes_cluster_config_kubernetes_version: 1.32.5
+kubernetes_cluster_config_kubernetes_version: 1.30.13
 kubernetes_cluster_config_cluster_name: kubernetes
 kubernetes_cluster_config_networking_service_subnet: "10.96.0.0/12"
 kubernetes_cluster_config_networking_pod_subnet: "10.244.0.0/16"
