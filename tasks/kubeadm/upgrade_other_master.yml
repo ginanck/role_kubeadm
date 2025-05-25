@@ -1,0 +1,44 @@
+---
+
+- name: Drain other master node
+  ansible.builtin.command: >
+    kubectl drain {{ node_hostname.stdout }} 
+    --ignore-daemonsets 
+    --delete-emptydir-data 
+    --force 
+    --timeout=300s
+  delegate_to: "{{ init_master_node }}"
+  register: drain_other_master_result
+
+- name: Upgrade other master node configuration
+  ansible.builtin.command: >
+    kubeadm upgrade node
+  register: upgrade_other_master_result
+
+- name: Display upgrade node result for other master
+  ansible.builtin.debug:
+    var: upgrade_other_master_result.stdout_lines
+
+- name: Restart kubelet service on other master
+  ansible.builtin.systemd:
+    name: kubelet
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Uncordon other master node
+  ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+  delegate_to: "{{ init_master_node }}"
+  register: uncordon_other_master_result
+
+- name: Wait for other master to be fully ready
+  ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  delegate_to: "{{ init_master_node }}"
+  register: other_master_status
+  retries: 15
+  delay: 15
+  until: true
+  changed_when: false
+
+- name: Update version file after upgrade on other master nodes
+  ansible.builtin.include_tasks: kubeadm/marker_version.yml

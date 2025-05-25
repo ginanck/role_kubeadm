@@ -1,5 +1,9 @@
 ---
 
+# https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/#stacked-control-plane-and-etcd-nodes
+# You can also specify a custom --certificate-key during init that can later be used by join. To generate such a key you can use the following command:
+# kubeadm certs certificate-key
+
 - name: upload certificates for node
   ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
   when: groups['master'] | difference([init_master_node]) | length > 0

@@ -1,0 +1,9 @@
+---
+
+- name: create version marker file
+  ansible.builtin.template:
+    src: kubernetes/version.txt.j2
+    dest: /etc/kubernetes/.version
+    owner: root
+    group: root
+    mode: '0644'

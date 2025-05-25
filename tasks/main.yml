@@ -50,7 +50,7 @@
         msg: "Node already joined: {{ node_already_joined | bool |upper }}"
 
 
-# initialize kubernetes cluster
+# Initialize Kubernetes cluster
 - name: Kubernetes cluster initialization
   when:
     - inventory_hostname == init_master_node
@@ -78,11 +78,14 @@
     - name: Create .kube directory for the current user
       ansible.builtin.include_tasks: kubeadm/dirs.yml
 
-    - name: Create initialization marker file
-      ansible.builtin.include_tasks: kubeadm/marker.yml
+    - name: Initialize Kubernetes cluster
+      ansible.builtin.include_tasks: kubeadm/marker_join.yml
+
+    - name: Create version marker file
+      ansible.builtin.include_tasks: kubeadm/marker_version.yml
 
 
-# join nodes to kubernetes cluster
+# Join nodes to Kubernetes cluster
 - name: Join nodes to Kubernetes cluster
   when:
     - inventory_hostname != init_master_node
@@ -109,5 +112,101 @@
       when:
         - inventory_hostname in groups['master']
 
-    - name: Create initialization marker file
-      ansible.builtin.include_tasks: kubeadm/marker.yml
+    - name: Join new node to Kubernetes cluster
+      ansible.builtin.include_tasks: kubeadm/marker_join.yml
+
+    - name: Create version marker file
+      ansible.builtin.include_tasks: kubeadm/marker_version.yml
+
+
+# Check Cluster version and upgrade requirements
+- name: Check cluster version and upgrade requirements
+  when: node_already_joined
+  block:
+    - name: Check if version file exists
+      ansible.builtin.stat:
+        path: /etc/kubernetes/.version
+      register: version_file_check
+
+    - name: Read current cluster version
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/.version
+      register: current_version_content
+      when: version_file_check.stat.exists
+
+    - name: Set current cluster version fact
+      ansible.builtin.set_fact:
+        current_cluster_version: "{{ current_version_content.content | b64decode | trim }}"
+      when: version_file_check.stat.exists
+
+    - name: Set current cluster version to unknown if file doesn't exist
+      ansible.builtin.set_fact:
+        current_cluster_version: "unknown"
+      when: not version_file_check.stat.exists
+
+    - name: Display current and target versions
+      ansible.builtin.debug:
+        msg: |
+          Current cluster version: {{ current_cluster_version }}
+          Target cluster version: {{ kubernetes_cluster_config_kubernetes_version }}
+
+    - name: Determine if upgrade is needed
+      ansible.builtin.set_fact:
+        upgrade_needed: "{{ current_cluster_version != 'unknown' and 
+                           current_cluster_version is version(kubernetes_cluster_config_kubernetes_version, '<') }}"
+
+    - name: Display upgrade decision
+      ansible.builtin.debug:
+        msg: "Upgrade needed: {{ upgrade_needed | bool | upper }}"
+
+
+# Upgrade Kubernetes Cluster
+# https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
+# https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/
+- name: Upgrade Kubernetes cluster
+  when:
+    - node_already_joined
+    - upgrade_needed | default(false)
+  block:
+    - name: Get hostname of nodes
+      ansible.builtin.command: hostname
+      register: node_hostname
+      become: true
+
+    - name: Check cluster health before upgrade
+      delegate_to: "{{ init_master_node }}"
+      when: inventory_hostname in groups['master']
+      block:
+        - name: Verify API server connectivity
+          ansible.builtin.command: kubectl cluster-info
+          register: cluster_info
+          retries: 10
+          delay: 15
+          until: cluster_info.rc == 0
+
+        - name: Check if kubectl is working
+          ansible.builtin.command: kubectl get nodes
+          register: kubectl_check
+          changed_when: false
+          failed_when: kubectl_check.rc != 0
+
+    - name: Upgrade init master node
+      ansible.builtin.include_tasks: kubeadm/upgrade_init_master.yml
+      when:
+        - inventory_hostname == init_master_node
+        - inventory_hostname in groups['master']
+
+    - name: Upgrade other master nodes
+      ansible.builtin.include_tasks: kubeadm/upgrade_other_master.yml
+      when:
+        - inventory_hostname != init_master_node
+        - inventory_hostname in groups['master']
+
+    - name: Upgrade worker nodes
+      ansible.builtin.include_tasks: kubeadm/upgrade_worker.yml
+      when: inventory_hostname in groups['worker'] | default([])
+
+    - name: Post-upgrade verification on init master node
+      ansible.builtin.include_tasks: kubeadm/upgrade_post_tasks.yml
+      when: inventory_hostname == init_master_node
+      run_once: true

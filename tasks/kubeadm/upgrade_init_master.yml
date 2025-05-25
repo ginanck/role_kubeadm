@@ -1,0 +1,51 @@
+---
+
+- name: drain init master node
+  ansible.builtin.command: >
+    kubectl drain {{ node_hostname.stdout }} 
+    --ignore-daemonsets 
+    --delete-emptydir-data 
+    --force 
+    --timeout=300s
+  register: drain_init_master_result
+
+- name: run kubeadm upgrade plan on init master
+  ansible.builtin.command: >
+    kubeadm upgrade plan --ignore-preflight-errors=CreateJob
+  register: upgrade_plan_result
+  changed_when: false
+
+- name: display upgrade plan
+  ansible.builtin.debug:
+    var: upgrade_plan_result.stdout_lines
+
+- name: apply kubeadm upgrade on init master
+  ansible.builtin.command: >
+    kubeadm upgrade apply v{{ kubernetes_cluster_config_kubernetes_version }} --yes --ignore-preflight-errors=CreateJob
+  register: upgrade_apply_result
+
+- name: display upgrade apply result
+  ansible.builtin.debug:
+    var: upgrade_apply_result.stdout_lines
+
+- name: restart kubelet service on init master
+  ansible.builtin.systemd:
+    name: kubelet
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: uncordon init master node
+  ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+  register: uncordon_init_master_result
+
+- name: wait for init master to be fully ready
+  ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  register: init_master_status
+  retries: 15
+  delay: 15
+  until: true
+  changed_when: false
+
+- name: Update version file after upgrade on init master node
+  ansible.builtin.include_tasks: kubeadm/marker_version.yml

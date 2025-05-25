@@ -62,7 +62,7 @@
 
 - name: Create kubelet configuration file
   ansible.builtin.template:
-    src: "kubelet/kubelet.config.j2"
+    src: "kubelet/config.yaml.j2"
     dest: "{{ kubernetes_kubelet_config_path }}/config.yaml"
     owner: root
     group: root

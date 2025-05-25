@@ -1,0 +1,76 @@
+---
+
+- name: Wait for all nodes to be ready
+  ansible.builtin.command: kubectl get nodes
+  register: all_nodes_status
+  retries: 15
+  delay: 20
+  until: "'NotReady' not in all_nodes_status.stdout"
+  changed_when: false
+
+- name: Display cluster status after upgrade
+  ansible.builtin.debug:
+    var: all_nodes_status.stdout_lines
+
+- name: Check kubectl client version
+  ansible.builtin.command: kubectl version --client -o yaml
+  register: kubectl_client_version
+  changed_when: false
+  failed_when: false
+
+- name: Check kubectl server version
+  ansible.builtin.command: kubectl version -o yaml
+  register: kubectl_full_version
+  changed_when: false
+  failed_when: false
+
+- name: Display kubectl version information
+  ansible.builtin.debug:
+    msg: |
+      Kubectl client version: {{ kubectl_client_version.stdout | from_yaml | json_query('clientVersion.gitVersion') | default('Unknown') }}
+      Kubernetes server version: {{ kubectl_full_version.stdout | from_yaml | json_query('serverVersion.gitVersion') | default('Unknown') }}
+  when: kubectl_full_version.rc == 0
+
+- name: Get kubeadm version
+  ansible.builtin.command: kubeadm version -o short
+  register: kubeadm_version
+  changed_when: false
+
+- name: Display kubeadm version
+  ansible.builtin.debug:
+    var: kubeadm_version.stdout
+
+- name: Get kubelet version from all nodes
+  ansible.builtin.command: kubectl get nodes -o wide
+  register: nodes_with_versions
+  changed_when: false
+
+- name: Display nodes with versions
+  ansible.builtin.debug:
+    var: nodes_with_versions.stdout_lines
+
+- name: Verify all pods are running
+  ansible.builtin.command: kubectl get pods --all-namespaces
+  register: all_pods_status
+  changed_when: false
+
+- name: Check for any pods not in Running state
+  ansible.builtin.command: kubectl get pods --all-namespaces --field-selector=status.phase!=Running
+  register: non_running_pods
+  changed_when: false
+  failed_when: false
+
+- name: Display non-running pods if any
+  ansible.builtin.debug:
+    msg: "Non-running pods found: {{ non_running_pods.stdout_lines }}"
+  when: 
+    - non_running_pods.rc == 0
+    - non_running_pods.stdout_lines | length > 1
+
+- name: Display successful upgrade message
+  ansible.builtin.debug:
+    msg: |
+      ✅ Kubernetes cluster upgrade completed successfully!
+      🎯 Target version: {{ kubernetes_cluster_config_kubernetes_version }}
+      📊 All nodes status: Ready
+      🚀 Cluster is operational

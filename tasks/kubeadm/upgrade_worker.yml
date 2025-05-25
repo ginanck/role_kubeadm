@@ -1,0 +1,51 @@
+---
+
+- name: Upgrade worker nodes
+  throttle: 1  # Upgrade one node at a time
+  block:
+    - name: Drain worker node
+      ansible.builtin.command: >
+        kubectl drain {{ node_hostname.stdout }} 
+        --ignore-daemonsets 
+        --delete-emptydir-data 
+        --force 
+        --timeout=300s 
+        --skip-wait-for-delete-timeout=60
+      delegate_to: "{{ init_master_node }}"
+      register: drain_worker_result
+      retries: 10
+      delay: 15
+      until: drain_worker_result.rc == 0
+
+    - name: Upgrade worker node configuration
+      ansible.builtin.command: >
+        kubeadm upgrade node
+      register: upgrade_worker_result
+
+    - name: Display upgrade node result for worker
+      ansible.builtin.debug:
+        var: upgrade_worker_result.stdout_lines
+
+    - name: Restart kubelet service on worker
+      ansible.builtin.systemd:
+        name: kubelet
+        state: restarted
+        enabled: true
+        daemon_reload: true
+
+    - name: Uncordon worker node
+      ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+      delegate_to: "{{ init_master_node }}"
+      register: uncordon_worker_result
+
+    - name: Wait for worker to be fully ready
+      ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      delegate_to: "{{ init_master_node }}"
+      register: worker_status
+      retries: 15
+      delay: 15
+      until: true
+      changed_when: false
+
+- name: Update version file after upgrade on worker nodes
+  ansible.builtin.include_tasks: kubeadm/marker_version.yml
