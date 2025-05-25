@@ -1,6 +1,6 @@
 ---
 
-- name: Create initialization marker file
+- name: create initialization marker file
   ansible.builtin.template:
     src: kubernetes/initialized.txt.j2
     dest: /etc/kubernetes/.initialized
@@ -8,7 +8,7 @@
     group: root
     mode: '0644'
 
-- name: Create version marker file
+- name: create version marker file
   ansible.builtin.template:
     src: kubernetes/version.txt.j2
     dest: /etc/kubernetes/.version

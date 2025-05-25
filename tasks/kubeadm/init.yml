@@ -1,6 +1,6 @@
 ---
 
-- name: Create kubeadm init config
+- name: create kubeadm init config
   ansible.builtin.template:
     src: init/config.yaml.j2
     dest: "{{ kubernetes_cluster_init_config_path }}/config.yml"
@@ -8,5 +8,5 @@
     group: root
     mode: '0644'
 
-- name: Initialize kubeadm with standard parameters
+- name: initialize kubeadm with standard parameters
   ansible.builtin.command: kubeadm init --config={{ kubernetes_cluster_init_config_path }}/config.yml

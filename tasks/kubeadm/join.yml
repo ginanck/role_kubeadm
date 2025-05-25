@@ -1,6 +1,6 @@
 ---
 
-- name: Join other master nodes to Kubernetes cluster
+- name: join other master nodes to Kubernetes cluster
   ansible.builtin.command: "{{ master_node_join_command }}"
   throttle: 1
   when: 
@@ -9,7 +9,7 @@
     - master_node_join_command is defined
   register: join_result
 
-- name: Join worker nodes to Kubernetes cluster
+- name: join worker nodes to Kubernetes cluster
   ansible.builtin.command: "{{ worker_node_join_command }}"
   throttle: 1
   when: 
@@ -17,12 +17,12 @@
     - worker_node_join_command is defined
   register: join_result
 
-- name: Display join command
+- name: display node join command
   ansible.builtin.debug:
     msg: "Join command: {{ join_result.stdout_lines }}"
   when: join_result is defined and join_result.stdout_lines is defined
 
-- name: Display join command output
+- name: display node join command output
   ansible.builtin.debug:
     var: join_result.stdout_lines
   when: join_result is defined and join_result.stdout_lines is defined
