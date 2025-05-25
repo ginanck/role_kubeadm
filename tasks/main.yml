@@ -4,7 +4,7 @@
 - name: Install prerequisites
   ansible.builtin.include_tasks: common/prerequisites.yml
 
-- name: Setup K8S
+- name: Setup Kubernetes Binaries
   ansible.builtin.include_tasks: "{{ kubernetes_setup_type }}/main.yml"
 
 - name: Find the hostname where kubernetes_cluster_init_master is true
@@ -32,35 +32,29 @@
   ansible.builtin.set_fact:
     init_master_node: "{{ hostvars['localhost'].init_master_node }}"
 
-- name: Determine node role and eligibility for joining
-  ansible.builtin.set_fact:
-    should_join: "{{ inventory_hostname != init_master_node and (inventory_hostname in groups['master'] or inventory_hostname in groups['worker']) }}"
 
-- name: Get all nodes that need to join
-  ansible.builtin.set_fact:
-    all_nodes_to_join: "{{ groups['master'] | difference([init_master_node]) + groups['worker'] | default([]) }}"
+# check node already joined cluster
+- name: Check node joined status
+  block:
+    - name: Check node has already joined the cluster
+      ansible.builtin.stat:
+        path: /etc/kubernetes/.initialized
+      register: node_initialized_check
 
-- name: Check for Kubernetes initialization indicators on init master
-  ansible.builtin.stat:
-    path: "/etc/kubernetes/.initialized"
-  register: k8s_init_check
+    - name: Set fact about node join status
+      ansible.builtin.set_fact:
+        node_already_joined: "{{ node_initialized_check.stat.exists }}"
 
-- name: Set fact about Kubernetes initialization status on init master
-  ansible.builtin.set_fact:
-    cluster_initialized_already: "{{ k8s_init_check.stat.exists }}"
-  when: inventory_hostname == init_master_node
-
-- name: Debug initialization status
-  ansible.builtin.debug:
-    msg: "Cluster already initialized: {{ cluster_initialized_already }}"
-  when: inventory_hostname == init_master_node
+    - name: Display node join status
+      ansible.builtin.debug:
+        msg: "Node already joined: {{ node_already_joined | bool |upper }}"
 
 
 # initialize kubernetes cluster
 - name: Kubernetes cluster initialization
   when:
     - inventory_hostname == init_master_node
-    - not cluster_initialized_already
+    - not node_already_joined
   block:
     - name: Pull required container images
       ansible.builtin.include_tasks: kubeadm/pull.yml
@@ -68,16 +62,10 @@
     - name: Initialize master node
       ansible.builtin.include_tasks: kubeadm/init.yml
 
-    - name: Create .kube directory for the current user
-      ansible.builtin.include_tasks: kubeadm/dirs.yml
-
     - name: Deploy cluster networking plugin
       ansible.builtin.include_tasks: kubeadm/network/{{ kubernetes_cluster_pod_network_type }}/main.yml
 
-    - name: Create initialization marker file
-      ansible.builtin.include_tasks: kubeadm/marker.yml
-
-    - name: Check master node status and pods
+    - name: Check master node status
       ansible.builtin.include_tasks: kubeadm/status.yml
       loop: "{{ [init_master_node] }}"
       loop_control:
@@ -85,49 +73,41 @@
         label: "{{ status_host }}"
       vars:
         check_hostname: "{{ status_host }}"
+      run_once: true
+
+    - name: Create .kube directory for the current user
+      ansible.builtin.include_tasks: kubeadm/dirs.yml
+
+    - name: Create initialization marker file
+      ansible.builtin.include_tasks: kubeadm/marker.yml
 
 
 # join nodes to kubernetes cluster
-- name: Check node has already joined the cluster
-  ansible.builtin.stat:
-    path: /etc/kubernetes/.initialized
-  register: node_initialized_check
-  when: inventory_hostname != init_master_node
-
-- name: Set fact about node join status
-  ansible.builtin.set_fact:
-    node_already_joined: "{{ node_initialized_check.stat.exists }}"
-  when: inventory_hostname != init_master_node
-
-- name: Debug initialization status
-  ansible.builtin.debug:
-    msg: "Node already joined: {{ node_already_joined }}"
-  when: inventory_hostname != init_master_node
-
-- name: Generate join token on init master node for other nodes to join
-  ansible.builtin.include_tasks: kubeadm/token.yml
-  when:
-    - inventory_hostname != init_master_node
-    - node_already_joined == False
-
 - name: Join nodes to Kubernetes cluster
-  ansible.builtin.include_tasks: kubeadm/join.yml
   when:
     - inventory_hostname != init_master_node
-    - node_already_joined == False
+    - not node_already_joined
+  block:
+    - name: Generate join token on init master node for other nodes to join
+      ansible.builtin.include_tasks: kubeadm/token.yml
 
-- name: Create .kube directory for the current user
-  ansible.builtin.include_tasks: kubeadm/dirs.yml
-  when:
-    - inventory_hostname in groups['master']
-    - inventory_hostname != init_master_node
+    - name: Join nodes to Kubernetes cluster
+      ansible.builtin.include_tasks: kubeadm/join.yml
 
-- name: Create initialization marker file
-  ansible.builtin.include_tasks: kubeadm/marker.yml
-  when: inventory_hostname != init_master_node
+    - name: Check node status
+      ansible.builtin.include_tasks: kubeadm/status.yml
+      loop: "{{ groups['master'] + groups['worker'] | default([]) }}"
+      loop_control:
+        loop_var: status_host
+        label: "{{ status_host }}"
+      vars:
+        check_hostname: "{{ status_host }}"
+      run_once: true
 
+    - name: Create .kube directory for the current user
+      ansible.builtin.include_tasks: kubeadm/dirs.yml
+      when:
+        - inventory_hostname in groups['master']
 
-# check master and worker nodes status and pods
-- name: Check master and worker nodes status and pods
-  ansible.builtin.include_tasks: kubeadm/status.yml
-  loop: "{{ groups['master'] + groups['worker'] | default([]) }}"
+    - name: Create initialization marker file
+      ansible.builtin.include_tasks: kubeadm/marker.yml

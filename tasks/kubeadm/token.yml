@@ -1,13 +1,13 @@
 ---
 
-- name: Upload certificates for node
+- name: upload certificates for node
   ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
   when: groups['master'] | difference([init_master_node]) | length > 0
   register: certificate_key_result
   delegate_to: "{{ init_master_node }}"
   run_once: true
 
-- name: Set certificate key for all master nodes
+- name: set certificate key for all master nodes
   ansible.builtin.set_fact:
     master_cert_key: "{{ certificate_key_result.stdout_lines[-1] }}"
   when: 
@@ -17,7 +17,7 @@
   delegate_to: localhost
   delegate_facts: true
 
-- name: Get join command for node
+- name: get join command for node
   ansible.builtin.command: kubeadm token create --print-join-command
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
@@ -25,26 +25,26 @@
   register: join_command_result
   delegate_to: "{{ init_master_node }}"
 
-- name: Set join command for other master nodes
+- name: set join command for other master nodes
   ansible.builtin.set_fact:
     master_node_join_command: "{{ join_command_result.stdout_lines[-1] }} --certificate-key {{ hostvars['localhost'].master_cert_key }} --control-plane"
   when:
     - inventory_hostname != init_master_node
     - inventory_hostname in groups['master']
 
-- name: Display join command for other master nodes
+- name: display join command for other master nodes
   ansible.builtin.debug:
     msg: "{{ master_node_join_command }}"
   when:
     - inventory_hostname != init_master_node
     - inventory_hostname in groups['master']
 
-- name: Set join command for worker nodes
+- name: set join command for worker nodes
   ansible.builtin.set_fact:
     worker_node_join_command: "{{ join_command_result.stdout_lines[-1] }}"
   when: inventory_hostname in groups['worker']
 
-- name: Display join command for worker nodes
+- name: display join command for worker nodes
   ansible.builtin.debug:
     msg: "{{ worker_node_join_command }}"
   when: inventory_hostname in groups['worker']
