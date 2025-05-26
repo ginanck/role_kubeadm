@@ -1,11 +1,11 @@
 ---
 
-- name: get hostname of nodes
+- name: get hostname of current node
   ansible.builtin.command: hostname
   register: node_hostname
   become: true
 
-- name: wait for node to become ready
+- name: wait for current node to become ready
   ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
@@ -16,7 +16,7 @@
   become: true
   delegate_to: "{{ init_master_node }}"
 
-- name: display node status
+- name: display current node status
   ansible.builtin.debug:
     msg: "Node {{ node_hostname.stdout }} has successfully joined the cluster and is in Ready state"
   when: node_status.stdout == "True"

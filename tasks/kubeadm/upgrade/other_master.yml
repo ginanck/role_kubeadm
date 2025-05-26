@@ -41,4 +41,4 @@
   changed_when: false
 
 - name: Update version file after upgrade on other master nodes
-  ansible.builtin.include_tasks: kubeadm/marker_version.yml
+  ansible.builtin.include_tasks: kubeadm/marker/version.yml

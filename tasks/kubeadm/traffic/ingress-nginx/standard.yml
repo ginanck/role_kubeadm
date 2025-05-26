@@ -1,0 +1,15 @@
+---
+
+# ingress-nginx deployment example
+# https://kubernetes.github.io/ingress-nginx/deploy/#bare-metal-clusters
+
+# kubernetes_traffic_type: ingress-nginx
+# kubernetes_traffic_deployment_type: standard
+# kubernetes_traffic_version: v1.12.2
+
+- name: install ingress-nginx deployment
+  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ kubernetes_traffic_deployment_version }}/deploy/static/provider/baremetal/deploy.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: metric_server
+  changed_when: metric_server.rc == 0

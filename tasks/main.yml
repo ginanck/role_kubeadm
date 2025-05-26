@@ -65,24 +65,23 @@
     - name: Deploy cluster networking plugin
       ansible.builtin.include_tasks: kubeadm/network/{{ kubernetes_cluster_pod_network_type }}/main.yml
 
-    - name: Check master node status
+    - name: Deploy traffic management resource to cluster
+      ansible.builtin.include_tasks: kubeadm/traffic/{{ kubernetes_traffic_type }}/{{ kubernetes_traffic_deployment_type }}.yml
+
+    # - name: Deploy metric-server to cluster
+    #   ansible.builtin.include_tasks: kubeadm/metric_server/{{ kubernetes_metric_server_deployment_type }}.yml
+
+    - name: Check init master node status
       ansible.builtin.include_tasks: kubeadm/status.yml
-      loop: "{{ [init_master_node] }}"
-      loop_control:
-        loop_var: status_host
-        label: "{{ status_host }}"
-      vars:
-        check_hostname: "{{ status_host }}"
-      run_once: true
 
     - name: Create .kube directory for the current user
       ansible.builtin.include_tasks: kubeadm/dirs.yml
 
     - name: Initialize Kubernetes cluster
-      ansible.builtin.include_tasks: kubeadm/marker_join.yml
+      ansible.builtin.include_tasks: kubeadm/marker/init.yml
 
     - name: Create version marker file
-      ansible.builtin.include_tasks: kubeadm/marker_version.yml
+      ansible.builtin.include_tasks: kubeadm/marker/version.yml
 
 
 # Join nodes to Kubernetes cluster
@@ -97,15 +96,8 @@
     - name: Join nodes to Kubernetes cluster
       ansible.builtin.include_tasks: kubeadm/join.yml
 
-    - name: Check node status
+    - name: Check current node status
       ansible.builtin.include_tasks: kubeadm/status.yml
-      loop: "{{ groups['master'] + groups['worker'] | default([]) }}"
-      loop_control:
-        loop_var: status_host
-        label: "{{ status_host }}"
-      vars:
-        check_hostname: "{{ status_host }}"
-      run_once: true
 
     - name: Create .kube directory for the current user
       ansible.builtin.include_tasks: kubeadm/dirs.yml
@@ -113,10 +105,10 @@
         - inventory_hostname in groups['master']
 
     - name: Join new node to Kubernetes cluster
-      ansible.builtin.include_tasks: kubeadm/marker_join.yml
+      ansible.builtin.include_tasks: kubeadm/marker/init.yml
 
     - name: Create version marker file
-      ansible.builtin.include_tasks: kubeadm/marker_version.yml
+      ansible.builtin.include_tasks: kubeadm/marker/version.yml
 
 
 # Check Cluster version and upgrade requirements
@@ -191,22 +183,22 @@
           failed_when: kubectl_check.rc != 0
 
     - name: Upgrade init master node
-      ansible.builtin.include_tasks: kubeadm/upgrade_init_master.yml
+      ansible.builtin.include_tasks: kubeadm/upgrade/init_master.yml
       when:
         - inventory_hostname == init_master_node
         - inventory_hostname in groups['master']
 
     - name: Upgrade other master nodes
-      ansible.builtin.include_tasks: kubeadm/upgrade_other_master.yml
+      ansible.builtin.include_tasks: kubeadm/upgrade/other_master.yml
       when:
         - inventory_hostname != init_master_node
         - inventory_hostname in groups['master']
 
     - name: Upgrade worker nodes
-      ansible.builtin.include_tasks: kubeadm/upgrade_worker.yml
+      ansible.builtin.include_tasks: kubeadm/upgrade/worker.yml
       when: inventory_hostname in groups['worker'] | default([])
 
     - name: Post-upgrade verification on init master node
-      ansible.builtin.include_tasks: kubeadm/upgrade_post_tasks.yml
+      ansible.builtin.include_tasks: kubeadm/upgrade/post_tasks.yml
       when: inventory_hostname == init_master_node
       run_once: true

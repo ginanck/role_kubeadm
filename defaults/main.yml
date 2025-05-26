@@ -38,13 +38,24 @@ kubernetes_cluster_config_scheduler_extra_args:
 kubernetes_cluster_config_etcd_local:
   dataDir: "/var/lib/etcd"
 
-kubernetes_cluster_kubelet_cgroup_driver: systemd
-kubernetes_cluster_kubelet_fail_swap_on: false
+kubernetes_cluster_config_kubelet_cgroup_driver: systemd
+kubernetes_cluster_config_kubelet_fail_swap_on: false
+kubernetes_cluster_config_kubelet_server_tls_bootstrap: true
 
 kubernetes_cluster_proxy_mode: ipvs
 kubernetes_cluster_proxy_ipvs_strict_arp: true
 
 kubernetes_cluster_pod_network_type: calico
+
+kubernetes_calico_version: v3.30.0
+kubernetes_calico_deployment_type: medium                     # "medium" for less than 50 nodes, "large" for more than 50 nodes
+
+kubernetes_metric_server_version: v0.7.2
+kubernetes_metric_server_deployment_type: high-availability   # "high-availability" for deploying metric server in high-availability mode, "single" for deploying in single node mode
+
+kubernetes_traffic_type: gateway-api              # Traffic Type: "gateway-api" or "ingress-nginx" is the traffic type
+kubernetes_traffic_deployment_type: standard      # Deployment Type: "standard", "minimal", "complete" etc etc.
+kubernetes_traffic_deployment_version: v1.3.0
 
 kubernetes_kubelet_config_path: /var/lib/kubelet
 kubernetes_kubelet_cgroup_driver: systemd

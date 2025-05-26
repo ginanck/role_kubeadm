@@ -1,0 +1,8 @@
+---
+
+- name: install metric server
+  ansible.builtin.command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ kubernetes_metric_server_version }}/components.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: metric_server
+  changed_when: metric_server.rc == 0

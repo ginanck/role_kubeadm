@@ -51,8 +51,9 @@ etcd:
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
-cgroupDriver: {{ kubernetes_cluster_kubelet_cgroup_driver }}
-failSwapOn: {{ kubernetes_cluster_kubelet_fail_swap_on | bool | lower }}
+cgroupDriver: {{ kubernetes_cluster_config_kubelet_cgroup_driver }}
+failSwapOn: {{ kubernetes_cluster_config_kubelet_fail_swap_on | bool | lower }}
+serverTLSBootstrap: {{ kubernetes_cluster_config_kubelet_server_tls_bootstrap | bool | lower }}
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
