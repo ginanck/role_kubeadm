@@ -1,0 +1,56 @@
+---
+
+# https://docs.nginx.com/nginx-gateway-fabric/installation/installing-ngf/manifests/
+# https://github.com/nginx/nginx-gateway-fabric
+
+- name: install nginx gateway fabric controller standard channel
+  ansible.builtin.shell: kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref={{ kubernetes_traffic_deployment_resource_version }}" | kubectl apply -f -
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: metric_server
+  changed_when: metric_server.rc == 0
+
+- name: install nginx gateway fabric crds
+  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/{{ kubernetes_traffic_deployment_resource_version }}/deploy/crds.yaml
+
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: metric_server
+  changed_when: metric_server.rc == 0
+
+- name: install nginx gateway fabric channel deployment
+  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/nginx/nginx-gateway-fabric/{{ kubernetes_traffic_deployment_resource_version }}/deploy/default/deploy.yaml
+
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: metric_server
+  changed_when: metric_server.rc == 0
+
+- name: patch nginx gateway fabric service to use dedicated nodeport ports
+  ansible.builtin.command: |
+    kubectl patch svc nginx-gateway -n nginx-gateway -p '{
+      "spec": {
+        "type": "NodePort",
+        "ports": [
+          {
+            "name": "http",
+            "port": 80,
+            "targetPort": 80,
+            "nodePort": 30080,
+            "protocol": "TCP"
+          },
+          {
+            "name": "https",
+            "port": 443,
+            "targetPort": 443,
+            "nodePort": 30443,
+            "protocol": "TCP"
+          }
+        ]
+      }
+    }'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: gateway_patch_result
+  changed_when: gateway_patch_result.rc == 0
+  failed_when: gateway_patch_result.rc != 0

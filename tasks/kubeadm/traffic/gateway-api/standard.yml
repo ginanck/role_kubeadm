@@ -14,3 +14,6 @@
     KUBECONFIG: /etc/kubernetes/admin.conf
   register: metric_server
   changed_when: metric_server.rc == 0
+
+- name: install gateway controller
+  ansible.builtin.include_tasks: kubeadm/traffic/{{ kubernetes_traffic_type }}/{{ kubernetes_traffic_deployment_resource }}/main.yml

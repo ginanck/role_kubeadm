@@ -57,6 +57,9 @@ kubernetes_traffic_type: gateway-api              # Traffic Type: "gateway-api" 
 kubernetes_traffic_deployment_type: standard      # Deployment Type: "standard", "minimal", "complete" etc etc.
 kubernetes_traffic_deployment_version: v1.3.0
 
+kubernetes_traffic_deployment_resource: nginx-gateway-fabric
+kubernetes_traffic_deployment_resource_version: v1.6.2
+
 kubernetes_kubelet_config_path: /var/lib/kubelet
 kubernetes_kubelet_cgroup_driver: systemd
 kubernetes_kubelet_runtime_socket: /run/containerd/containerd.sock
