@@ -86,7 +86,7 @@ kubernetes_sysctl_parameters:
 
 kubernetes_binary_dir: /opt/k8s/bin
 kubernetes_binary_link_path: /usr/bin
-kubernetes_systemd_path: /usr/lib/systemd/system
+kubernetes_systemd_path: /etc/systemd/system
 
 kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}"    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
 kubernetes_release_arch: amd64
