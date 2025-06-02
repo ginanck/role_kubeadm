@@ -13,13 +13,17 @@ kubernetes_cluster_init_config_path: /tmp
 kubernetes_cluster_init_config_local_advertise_address: 172.16.3.101
 kubernetes_cluster_init_config_local_advertise_port: 6443
 
+# This is the endpoint of the control plane node when using External Loadbalacer for Multi Master Setup
+# By default, it is the same as the local advertise address and port for Single Master Setup
+kubernetes_cluster_config_control_plane_endpoint_url: 172.16.3.101
+kubernetes_cluster_config_control_plane_endpoint_port: 6443
+
 kubernetes_cluster_config_kubernetes_version: 1.30.13
 kubernetes_cluster_config_cluster_name: kubernetes
 kubernetes_cluster_config_networking_service_subnet: "10.96.0.0/12"
 kubernetes_cluster_config_networking_pod_subnet: "10.244.0.0/16"
 kubernetes_cluster_config_networking_dns_domain: cluster.local
-kubernetes_cluster_config_control_plane_endpoint_url: 172.16.2.81
-kubernetes_cluster_config_control_plane_endpoint_port: 6443
+
 kubernetes_cluster_config_api_server_extra_args:
   - Node
   - RBAC
