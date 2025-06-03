@@ -4,7 +4,7 @@
   ansible.builtin.command: "{{ master_node_join_command }}"
   throttle: 1
   when: 
-    - inventory_hostname in groups['master']
+    - inventory_hostname in groups['k8s_master']
     - inventory_hostname != init_master_node
     - master_node_join_command is defined
   register: join_result
@@ -13,7 +13,7 @@
   ansible.builtin.command: "{{ worker_node_join_command }}"
   throttle: 1
   when: 
-    - inventory_hostname in groups['worker']
+    - inventory_hostname in groups['k8s_worker']
     - worker_node_join_command is defined
   register: join_result
 

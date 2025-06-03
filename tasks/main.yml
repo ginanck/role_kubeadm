@@ -65,8 +65,8 @@
     - name: Deploy cluster networking plugin
       ansible.builtin.include_tasks: kubeadm/network/{{ kubernetes_cluster_pod_network_type }}/main.yml
 
-    - name: Deploy traffic management resource to cluster
-      ansible.builtin.include_tasks: kubeadm/traffic/{{ kubernetes_traffic_type }}/{{ kubernetes_traffic_deployment_type }}.yml
+    # - name: Deploy traffic management resource to cluster
+    #   ansible.builtin.include_tasks: kubeadm/traffic/{{ kubernetes_traffic_type }}/{{ kubernetes_traffic_deployment_type }}.yml
 
     # - name: Deploy metric-server to cluster
     #   ansible.builtin.include_tasks: kubeadm/metric_server/{{ kubernetes_metric_server_deployment_type }}.yml
@@ -102,7 +102,7 @@
     - name: Create .kube directory for the current user
       ansible.builtin.include_tasks: kubeadm/dirs.yml
       when:
-        - inventory_hostname in groups['master']
+        - inventory_hostname in groups['k8s_master']
 
     - name: Join new node to Kubernetes cluster
       ansible.builtin.include_tasks: kubeadm/marker/init.yml
@@ -167,7 +167,7 @@
 
     - name: Check cluster health before upgrade
       delegate_to: "{{ init_master_node }}"
-      when: inventory_hostname in groups['master']
+      when: inventory_hostname in groups['k8s_master']
       block:
         - name: Verify API server connectivity
           ansible.builtin.command: kubectl cluster-info
@@ -186,17 +186,17 @@
       ansible.builtin.include_tasks: kubeadm/upgrade/init_master.yml
       when:
         - inventory_hostname == init_master_node
-        - inventory_hostname in groups['master']
+        - inventory_hostname in groups['k8s_master']
 
     - name: Upgrade other master nodes
       ansible.builtin.include_tasks: kubeadm/upgrade/other_master.yml
       when:
         - inventory_hostname != init_master_node
-        - inventory_hostname in groups['master']
+        - inventory_hostname in groups['k8s_master']
 
     - name: Upgrade worker nodes
       ansible.builtin.include_tasks: kubeadm/upgrade/worker.yml
-      when: inventory_hostname in groups['worker'] | default([])
+      when: inventory_hostname in groups['k8s_worker'] | default([])
 
     - name: Post-upgrade verification on init master node
       ansible.builtin.include_tasks: kubeadm/upgrade/post_tasks.yml

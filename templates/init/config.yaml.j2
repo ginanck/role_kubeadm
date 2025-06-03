@@ -25,7 +25,7 @@ apiServer:
   timeoutForControlPlane: {{ kubernetes_cluster_config_api_server_timeout_for_controlplane_seconds }}
   certSANs:
   - "{{ kubernetes_cluster_config_control_plane_endpoint_url }}"
-{% for master in groups['master'] %}
+{% for master in groups['k8s_master'] %}
   - "{{ hostvars[master]['ansible_default_ipv4']['address'] }}"
 {% endfor %}
   - "kubernetes"
