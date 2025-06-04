@@ -27,6 +27,7 @@
       - name: "kubelet"
         path: "{{ kubernetes_binary_dir }}/kubelet-{{ kubernetes_release_version }}"
         link: "{{ kubernetes_binary_link_path }}/kubelet"
+    state: selected
 
 - name: Ensure Kubernetes binaries are in PATH
   template:
