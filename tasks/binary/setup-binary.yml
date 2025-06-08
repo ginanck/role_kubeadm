@@ -27,7 +27,9 @@
   ansible.builtin.get_url:
     url: "{{ kubernetes_release_download_url }}/{{ binary_item }}"
     dest: "{{ kubernetes_binary_dir }}/{{ versioned_binary_name }}"
-    mode: '0755'
     checksum: "sha256:{{ sha256_remote.content | default('') | trim }}"
-    force: no
+    mode: '0755'
+    validate_certs: false
+    force: false
+    timeout: 180
   when: not binary_stat.stat.exists or (sha256_remote.content is defined and binary_stat.stat.checksum != (sha256_remote.content | trim))
