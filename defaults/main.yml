@@ -96,7 +96,7 @@ kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}
 kubernetes_release_arch: amd64
 
 kubernetes_release_type: stable         # "stable" or "latest" for k8s versions
-kubernetes_release_base_url: https://dl.k8s.io/release
+kubernetes_release_base_url: https://dl.k8s.io
 kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
 kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_type }}.txt"
 

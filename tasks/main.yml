@@ -23,7 +23,7 @@
                          selectattr('value.init_master_candidates', 'defined') | 
                          map(attribute='key') | 
                          first | 
-                         default(groups['master'] | first) }}"
+                         default(groups['k8s_master'] | first) }}"
   run_once: true
   delegate_to: localhost
   delegate_facts: true
