@@ -9,6 +9,8 @@
 # kubernetes skew policy: https://kubernetes.io/releases/version-skew-policy/
 # version skew policy: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#version-skew-policy
 
+kubernetes_kubeadm_delay: 30
+kubernetes_kubeadm_retry: 30
 kubernetes_kubeadm_upgrade_drain_timeout: "600s"
 
 kubernetes_cluster_init_config_path: /tmp
@@ -130,5 +132,3 @@ kubernetes_release_type: stable         # "stable" or "latest" for k8s versions
 kubernetes_release_base_url: https://dl.k8s.io
 kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
 kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_type }}.txt"
-
-kubernetes_setup_type: binary           # "binary" or "repo" for installing from binaries or from Kubernetes repository

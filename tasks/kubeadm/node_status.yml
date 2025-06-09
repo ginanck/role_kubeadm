@@ -1,0 +1,43 @@
+---
+
+- name: get hostname of current node
+  ansible.builtin.command: hostname
+  register: node_hostname
+  become: true
+
+- name: wait for current node to become ready
+  ansible.builtin.shell: |
+    READY_STATUS=$(kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')
+    UNSCHEDULABLE=$(kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.spec.unschedulable}')
+    if [[ "$READY_STATUS" == "True" && "$UNSCHEDULABLE" != "true" ]]; then
+      echo "True"
+    else
+      echo "False"
+    fi
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: node_status
+  failed_when:
+    - node_status.stdout != "True"
+    - node_status.attempts >= 30
+  until: node_status.stdout == "True"
+  changed_when: false
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
+  become: true
+  delegate_to: "{{ init_master_node }}"
+
+- name: Identify any nodes with issues
+  ansible.builtin.shell: |
+    kubectl get nodes --no-headers
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+  failed_when: false
+  become: true
+  delegate_to: "{{ init_master_node }}"
+
+- name: display current node status
+  ansible.builtin.debug:
+    msg: "Node {{ node_hostname.stdout }} {{ status_message }} and in Ready state"
+  when: node_status.stdout == "True"

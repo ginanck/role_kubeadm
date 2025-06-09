@@ -13,8 +13,8 @@
         --skip-wait-for-delete-timeout=60
       delegate_to: "{{ init_master_node }}"
       register: drain_worker_result
-      retries: 10
-      delay: 15
+      retries: "{{ kubernetes_kubeadm_retry }}"
+      delay: "{{ kubernetes_kubeadm_delay }}"
       until: drain_worker_result.rc == 0
 
     - name: Upgrade worker node configuration
@@ -42,10 +42,7 @@
       ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
       delegate_to: "{{ init_master_node }}"
       register: worker_status
-      retries: 15
-      delay: 15
+      retries: "{{ kubernetes_kubeadm_retry }}"
+      delay: "{{ kubernetes_kubeadm_delay }}"
       until: true
       changed_when: false
-
-- name: Update version file after upgrade on worker nodes
-  ansible.builtin.include_tasks: kubeadm/marker/version.yml

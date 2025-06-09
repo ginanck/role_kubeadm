@@ -43,15 +43,3 @@
 
 - name: uncordon init master node
   ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
-  register: uncordon_init_master_result
-
-- name: wait for init master to be fully ready
-  ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
-  register: init_master_status
-  retries: 15
-  delay: 15
-  until: true
-  changed_when: false
-
-- name: Update version file after upgrade on init master node
-  ansible.builtin.include_tasks: kubeadm/marker/version.yml

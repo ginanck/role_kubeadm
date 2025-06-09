@@ -3,8 +3,8 @@
 - name: Wait for all nodes to be ready
   ansible.builtin.command: kubectl get nodes
   register: all_nodes_status
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   until: "'NotReady' not in all_nodes_status.stdout"
   changed_when: false
 
@@ -21,8 +21,8 @@
 - name: Check kubectl server version
   ansible.builtin.command: kubectl version -o yaml
   register: kubectl_full_version
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   changed_when: false
   failed_when: false
 
@@ -36,8 +36,8 @@
 - name: Get kubeadm version
   ansible.builtin.command: kubeadm version -o short
   register: kubeadm_version
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   changed_when: false
 
 - name: Display kubeadm version
@@ -47,8 +47,8 @@
 - name: Get kubelet version from all nodes
   ansible.builtin.command: kubectl get nodes -o wide
   register: nodes_with_versions
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   changed_when: false
 
 - name: Display nodes with versions
@@ -58,15 +58,15 @@
 - name: Verify all pods are running
   ansible.builtin.command: kubectl get pods --all-namespaces
   register: all_pods_status
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   changed_when: false
 
 - name: Check for any pods not in Running state
   ansible.builtin.command: kubectl get pods --all-namespaces --field-selector=status.phase!=Running
   register: non_running_pods
-  retries: 15
-  delay: 20
+  retries: "{{ kubernetes_kubeadm_retry }}"
+  delay: "{{ kubernetes_kubeadm_delay }}"
   changed_when: false
   failed_when: false
 

@@ -1,10 +1,10 @@
 ---
 
 - name: Setup Kubernetes version
-  ansible.builtin.include_tasks: binary/setup-version.yml
+  ansible.builtin.include_tasks: binary/version.yml
 
 - name: Download and verify Kubernetes binaries
-  ansible.builtin.include_tasks: binary/setup-binary.yml
+  ansible.builtin.include_tasks: binary/binary.yml
   loop:
     - kubeadm
     - kubelet
