@@ -6,7 +6,7 @@
 
 - name: upload certificates for node
   ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
-  when: groups['master'] | difference([init_master_node]) | length > 0
+  when: groups['k8s_master'] | difference([init_master_node]) | length > 0
   register: certificate_key_result
   delegate_to: "{{ init_master_node }}"
   run_once: true
