@@ -68,6 +68,7 @@
     owner: root
     group: root
     mode: '0644'
+  when: not node_already_joined
 
 - name: Install kubelet service file from template
   ansible.builtin.template:

@@ -6,7 +6,7 @@
     --ignore-daemonsets 
     --delete-emptydir-data 
     --force 
-    --timeout=300s
+    --timeout={{ kubernetes_kubeadm_upgrade_drain_timeout }}
   delegate_to: "{{ init_master_node }}"
   register: drain_other_master_result
 

@@ -1,0 +1,5 @@
+---
+
+- name: get and save kubeadm image list
+  ansible.builtin.shell: kubeadm config images list | tee /etc/kubernetes/.images-{{ kubernetes_cluster_config_kubernetes_version }}.txt
+  changed_when: true

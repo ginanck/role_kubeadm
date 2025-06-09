@@ -21,8 +21,3 @@
   ansible.builtin.debug:
     msg: "Join command: {{ join_result.stdout_lines }}"
   when: join_result is defined and join_result.stdout_lines is defined
-
-- name: display node join command output
-  ansible.builtin.debug:
-    var: join_result.stdout_lines
-  when: join_result is defined and join_result.stdout_lines is defined

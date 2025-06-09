@@ -2,7 +2,7 @@ apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 nodeRegistration:
   name: {{ ansible_hostname }}
-  criSocket: "{{ kubernetes_kubelet_runtime_socket }}"
+  criSocket: "{{ kubernetes_kubelet_containerRuntimeEndpoint }}"
   taints:
   - key: node-role.kubernetes.io/control-plane
     effect: NoSchedule
@@ -51,14 +51,15 @@ etcd:
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
-cgroupDriver: {{ kubernetes_cluster_config_kubelet_cgroup_driver }}
-failSwapOn: {{ kubernetes_cluster_config_kubelet_fail_swap_on | bool | lower }}
-serverTLSBootstrap: {{ kubernetes_cluster_config_kubelet_server_tls_bootstrap | bool | lower }}
+containerRuntimeEndpoint: unix://{{ kubernetes_kubelet_containerRuntimeEndpoint }}
+cgroupDriver: {{ kubernetes_kubelet_cgroupDriver }}
+failSwapOn: {{ kubernetes_kubelet_failSwapOn | bool | lower }}
+serverTLSBootstrap: {{ kubernetes_kubelet_serverTLSBootstrap | bool | lower }}
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
 mode: "{{ kubernetes_cluster_proxy_mode }}"
 {% if kubernetes_cluster_proxy_mode | default('iptables') %}
 ipvs:
-  strictARP: {{ kubernetes_cluster_proxy_ipvs_strict_arp | bool | lower }}
+  strictARP: {{ kubernetes_kubelet_serverTLSBootstrap | bool | lower }}
 {% endif %}

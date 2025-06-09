@@ -6,8 +6,14 @@
     --ignore-daemonsets 
     --delete-emptydir-data 
     --force 
-    --timeout=300s
+    --timeout={{ kubernetes_kubeadm_upgrade_drain_timeout }}
   register: drain_init_master_result
+
+- name: pull required container images
+  ansible.builtin.include_tasks: kubeadm/pull.yml
+
+- name: save image list
+  ansible.builtin.include_tasks: kubeadm/image.yml
 
 - name: run kubeadm upgrade plan on init master
   ansible.builtin.command: >

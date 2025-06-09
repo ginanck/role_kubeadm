@@ -9,6 +9,8 @@
 # kubernetes skew policy: https://kubernetes.io/releases/version-skew-policy/
 # version skew policy: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#version-skew-policy
 
+kubernetes_kubeadm_upgrade_drain_timeout: "600s"
+
 kubernetes_cluster_init_config_path: /tmp
 kubernetes_cluster_init_config_local_advertise_address: 172.16.3.101
 kubernetes_cluster_init_config_local_advertise_port: 6443
@@ -42,10 +44,6 @@ kubernetes_cluster_config_scheduler_extra_args:
 kubernetes_cluster_config_etcd_local:
   dataDir: "/var/lib/etcd"
 
-kubernetes_cluster_config_kubelet_cgroup_driver: systemd
-kubernetes_cluster_config_kubelet_fail_swap_on: false
-kubernetes_cluster_config_kubelet_server_tls_bootstrap: true
-
 kubernetes_cluster_proxy_mode: ipvs
 kubernetes_cluster_proxy_ipvs_strict_arp: true
 
@@ -65,8 +63,41 @@ kubernetes_traffic_deployment_resource: nginx-gateway-fabric
 kubernetes_traffic_deployment_resource_version: v1.6.2
 
 kubernetes_kubelet_config_path: /var/lib/kubelet
-kubernetes_kubelet_cgroup_driver: systemd
-kubernetes_kubelet_runtime_socket: /run/containerd/containerd.sock
+kubernetes_kubelet_authentication_anonymous_enabled: false
+kubernetes_kubelet_authentication_webhook_cacheTTL: "0s"
+kubernetes_kubelet_authentication_webhook_enabled: true
+kubernetes_kubelet_authentication_x509_clientCAFile: "/etc/kubernetes/pki/ca.crt"
+kubernetes_kubelet_authorization_mode: "Webhook"
+kubernetes_kubelet_authorization_webhook_cacheAuthorizedTTL: "0s"
+kubernetes_kubelet_authorization_webhook_cacheUnauthorizedTTL: "0s"
+kubernetes_kubelet_cgroupDriver: "systemd"
+kubernetes_kubelet_clusterDNS: "10.96.0.10"
+kubernetes_kubelet_clusterDomain: "{{ kubernetes_cluster_config_networking_dns_domain }}"
+kubernetes_kubelet_containerRuntimeEndpoint: "/run/containerd/containerd.sock"
+kubernetes_kubelet_cpuManagerReconcilePeriod: "0s"
+kubernetes_kubelet_evictionPressureTransitionPeriod: "0s"
+kubernetes_kubelet_failSwapOn: false
+kubernetes_kubelet_fileCheckFrequency: "0s"
+kubernetes_kubelet_healthzBindAddress: "127.0.0.1"
+kubernetes_kubelet_healthzPort: "10248"
+kubernetes_kubelet_httpCheckFrequency: "0s"
+kubernetes_kubelet_imageMaximumGCAge: "0s"
+kubernetes_kubelet_imageMinimumGCAge: "0s"
+kubernetes_kubelet_logging_flushFrequency: 0
+kubernetes_kubelet_logging_options_json_infoBufferSize: 0
+kubernetes_kubelet_logging_options_text_infoBufferSize: 0
+kubernetes_kubelet_logging_verbosity: 0
+kubernetes_kubelet_nodeStatusReportFrequency: "0s"
+kubernetes_kubelet_nodeStatusUpdateFrequency: "0s"
+kubernetes_kubelet_rotateCertificates: true
+kubernetes_kubelet_runtimeRequestTimeout: "0s"
+kubernetes_kubelet_serverTLSBootstrap: true
+kubernetes_kubelet_shutdownGracePeriod: "0s"
+kubernetes_kubelet_shutdownGracePeriodCriticalPods: "0s"
+kubernetes_kubelet_staticPodPath: "/etc/kubernetes/manifests"
+kubernetes_kubelet_streamingConnectionIdleTimeout: "0s"
+kubernetes_kubelet_syncFrequency: "0s"
+kubernetes_kubelet_volumeStatsAggPeriod: "0s"
 
 kubernetes_sysctl_conf_file: "99-kubernetes.conf"
 kubernetes_sysctl_parameters:

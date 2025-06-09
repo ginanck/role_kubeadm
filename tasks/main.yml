@@ -4,9 +4,6 @@
 - name: Install prerequisites
   ansible.builtin.include_tasks: common/prerequisites.yml
 
-- name: Setup Kubernetes Binaries
-  ansible.builtin.include_tasks: "{{ kubernetes_setup_type }}/main.yml"
-
 - name: Find the hostname where kubernetes_cluster_init_master is true
   ansible.builtin.set_fact:
     init_master_candidates: "{{ init_master_candidates | default([]) + [inventory_hostname] }}"
@@ -50,6 +47,11 @@
         msg: "Node already joined: {{ node_already_joined | bool |upper }}"
 
 
+# Setup Kubernetes Binaries
+- name: Setup Kubernetes Binaries
+  ansible.builtin.include_tasks: "{{ kubernetes_setup_type }}/main.yml"
+
+
 # Initialize Kubernetes cluster
 - name: Kubernetes cluster initialization
   when:
@@ -61,6 +63,15 @@
 
     - name: Initialize master node
       ansible.builtin.include_tasks: kubeadm/init.yml
+
+    - name: Check cluster Health
+      ansible.builtin.include_tasks: kubeadm/health_core.yml
+
+    - name: Check init-master node Health
+      ansible.builtin.include_tasks: kubeadm/health_node.yml
+
+    - name: Save image list
+      ansible.builtin.include_tasks: kubeadm/image.yml
 
     - name: Deploy cluster networking plugin
       ansible.builtin.include_tasks: kubeadm/network/{{ kubernetes_cluster_pod_network_type }}/main.yml
@@ -98,6 +109,9 @@
 
     - name: Check current node status
       ansible.builtin.include_tasks: kubeadm/status.yml
+
+    - name: Check init-master node Health
+      ansible.builtin.include_tasks: kubeadm/health_node.yml
 
     - name: Create .kube directory for the current user
       ansible.builtin.include_tasks: kubeadm/dirs.yml
@@ -197,6 +211,12 @@
     - name: Upgrade worker nodes
       ansible.builtin.include_tasks: kubeadm/upgrade/worker.yml
       when: inventory_hostname in groups['k8s_worker'] | default([])
+
+    - name: Check cluster Health
+      ansible.builtin.include_tasks: kubeadm/health_core.yml
+
+    - name: Check init-master node Health
+      ansible.builtin.include_tasks: kubeadm/health_node.yml
 
     - name: Post-upgrade verification on init master node
       ansible.builtin.include_tasks: kubeadm/upgrade/post_tasks.yml

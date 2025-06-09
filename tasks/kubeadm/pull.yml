@@ -1,4 +1,5 @@
 ---
 
 - name: pull required container images before initializing
-  ansible.builtin.command: kubeadm config images pull
+  ansible.builtin.shell: kubeadm config images pull
+  changed_when: true

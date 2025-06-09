@@ -1,4 +1,52 @@
-kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
-cgroupDriver: {{ kubernetes_kubelet_cgroup_driver }}
-containerRuntimeEndpoint: unix://{{ kubernetes_kubelet_runtime_socket }}
+authentication:
+  anonymous:
+    enabled: {{ kubernetes_kubelet_authentication_anonymous_enabled | bool | lower }}
+  webhook:
+    cacheTTL: {{ kubernetes_kubelet_authentication_webhook_cacheTTL }}
+    enabled: {{ kubernetes_kubelet_authentication_webhook_enabled | bool | lower }}
+  x509:
+    clientCAFile: {{ kubernetes_kubelet_authentication_x509_clientCAFile }}
+authorization:
+  mode: {{ kubernetes_kubelet_authorization_mode }}
+  webhook:
+    cacheAuthorizedTTL: {{ kubernetes_kubelet_authorization_webhook_cacheAuthorizedTTL }}
+    cacheUnauthorizedTTL: {{ kubernetes_kubelet_authorization_webhook_cacheUnauthorizedTTL }}
+cgroupDriver: {{ kubernetes_kubelet_cgroupDriver }}
+clusterDNS:
+- {{ kubernetes_kubelet_clusterDNS }}
+clusterDomain: {{ kubernetes_kubelet_clusterDomain }}
+containerRuntimeEndpoint: unix://{{ kubernetes_kubelet_containerRuntimeEndpoint }}
+cpuManagerReconcilePeriod: {{ kubernetes_kubelet_cpuManagerReconcilePeriod }}
+{% if kubernetes_cluster_config_kubernetes_version is version('1.32.5', '>=') %}
+crashLoopBackOff: {}
+{% endif %}
+evictionPressureTransitionPeriod: {{ kubernetes_kubelet_evictionPressureTransitionPeriod }}
+failSwapOn: {{ kubernetes_kubelet_failSwapOn | bool | lower }}
+fileCheckFrequency: {{ kubernetes_kubelet_fileCheckFrequency }}
+healthzBindAddress: {{ kubernetes_kubelet_healthzBindAddress }}
+healthzPort: {{ kubernetes_kubelet_healthzPort }}
+httpCheckFrequency: {{ kubernetes_kubelet_httpCheckFrequency }}
+imageMaximumGCAge: {{ kubernetes_kubelet_imageMaximumGCAge }}
+imageMinimumGCAge: {{ kubernetes_kubelet_imageMinimumGCAge }}
+kind: KubeletConfiguration
+logging:
+  flushFrequency: {{ kubernetes_kubelet_logging_flushFrequency }}
+  options:
+    json:
+      infoBufferSize: "{{ kubernetes_kubelet_logging_options_json_infoBufferSize }}"
+    text:
+      infoBufferSize: "{{ kubernetes_kubelet_logging_options_text_infoBufferSize }}"
+  verbosity: {{ kubernetes_kubelet_logging_verbosity }}
+memorySwap: {}
+nodeStatusReportFrequency: {{ kubernetes_kubelet_nodeStatusReportFrequency }}
+nodeStatusUpdateFrequency: {{ kubernetes_kubelet_nodeStatusUpdateFrequency }}
+rotateCertificates: {{ kubernetes_kubelet_rotateCertificates | bool | lower }}
+runtimeRequestTimeout: {{ kubernetes_kubelet_runtimeRequestTimeout }}
+serverTLSBootstrap: {{ kubernetes_kubelet_serverTLSBootstrap | bool | lower }}
+shutdownGracePeriod: {{ kubernetes_kubelet_shutdownGracePeriod }}
+shutdownGracePeriodCriticalPods: {{ kubernetes_kubelet_shutdownGracePeriodCriticalPods }}
+staticPodPath: {{ kubernetes_kubelet_staticPodPath }}
+streamingConnectionIdleTimeout: {{ kubernetes_kubelet_streamingConnectionIdleTimeout }}
+syncFrequency: {{ kubernetes_kubelet_syncFrequency }}
+volumeStatsAggPeriod: {{ kubernetes_kubelet_volumeStatsAggPeriod }}

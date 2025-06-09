@@ -1,0 +1,129 @@
+---
+
+# Wait for system to stabilize
+- name: wait for kube-system pods to be ready
+  ansible.builtin.shell: kubectl get pods -n kube-system --no-headers | grep -v Running | wc -l
+  register: not_running_pods
+  until: not_running_pods.stdout == "0"
+  retries: 30
+  delay: 10
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+# Check deployments health
+- name: check deployments in kube-system namespace
+  ansible.builtin.command: kubectl get deployment -n kube-system
+  register: k8s_deployments
+  retries: 30
+  delay: 10
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: verify coredns deployment is healthy
+  ansible.builtin.command: kubectl get deployment -n kube-system coredns -o jsonpath='{.status.readyReplicas}/{.status.replicas}'
+  register: coredns_status
+  until: coredns_status.stdout == "2/2"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - coredns_status.stdout != "2/2"
+    - coredns_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+# Check daemonsets health
+- name: check daemonsets in kube-system namespace
+  ansible.builtin.command: kubectl get daemonset -n kube-system
+  register: k8s_daemonsets
+  retries: 30
+  delay: 10
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: verify kube-proxy daemonset is healthy
+  ansible.builtin.command: kubectl get daemonset -n kube-system kube-proxy -o jsonpath='{.status.numberReady}/{.status.desiredNumberScheduled}'
+  register: kube_proxy_status
+  until: kube_proxy_status.stdout.split("/")[0] == kube_proxy_status.stdout.split("/")[1]
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - kube_proxy_status.stdout.split("/")[0] != kube_proxy_status.stdout.split("/")[1]
+    - kube_proxy_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+# Check critical pods health
+- name: check etcd pod health
+  ansible.builtin.shell: "kubectl get pods -n kube-system | grep 'etcd-' | awk '{print $3}'"
+  register: etcd_status
+  until: etcd_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - etcd_status.stdout != "Running"
+    - etcd_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: check apiserver pod health
+  ansible.builtin.shell: "kubectl get pods -n kube-system | grep 'kube-apiserver-' | awk '{print $3}'"
+  register: apiserver_status
+  until: apiserver_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - apiserver_status.stdout != "Running"
+    - apiserver_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: check controller-manager pod health
+  ansible.builtin.shell: "kubectl get pods -n kube-system | grep 'kube-controller-manager-' | awk '{print $3}'"
+  register: controller_status
+  until: controller_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - controller_status.stdout != "Running"
+    - controller_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: check scheduler pod health
+  ansible.builtin.shell: "kubectl get pods -n kube-system | grep 'kube-scheduler-' | awk '{print $3}'"
+  register: scheduler_status
+  until: scheduler_status.stdout == "Running"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: 
+    - scheduler_status.stdout != "Running"
+    - scheduler_status.attempts >= 30
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf

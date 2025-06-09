@@ -1,0 +1,55 @@
+---
+
+# Check node status
+- name: Get list of all nodes
+  ansible.builtin.shell: kubectl get nodes --no-headers | awk '{print $1}'
+  register: node_list
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Display all nodes found
+  ansible.builtin.debug:
+    msg: "Found nodes: {{ node_list.stdout_lines }}"
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+
+# Check each node's status
+- name: Check if each node is Ready and schedulable
+  ansible.builtin.shell: |
+    READY_STATUS=$(kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')
+    UNSCHEDULABLE=$(kubectl get node {{ item }} -o jsonpath='{.spec.unschedulable}')
+    if [[ "$READY_STATUS" == "True" && "$UNSCHEDULABLE" != "true" ]]; then
+      echo "ready_and_schedulable"
+    else
+      echo "not_ready_or_unschedulable"
+    fi
+  register: node_health_result
+  until: node_health_result.stdout == "ready_and_schedulable"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when:
+    - node_health_result.stdout != "ready_and_schedulable"
+    - node_health_result.attempts >= 30
+  loop: "{{ node_list.stdout_lines }}"
+  loop_control:
+    label: "{{ item }}"
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+# Optional: Get more detailed information about any problematic nodes
+- name: Identify any nodes with issues
+  ansible.builtin.shell: |
+    kubectl get nodes --no-headers
+  register: problem_nodes
+  changed_when: false
+  failed_when: false
+  run_once: true
+  delegate_to: "{{ init_master_node }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
