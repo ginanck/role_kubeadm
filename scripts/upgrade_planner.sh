@@ -24,14 +24,40 @@ echo "🔍 Analyzing upgrade path from Kubernetes $CURRENT_VERSION"
 echo "📡 Fetching available versions from GitHub..."
 
 # Fetch all releases from GitHub
+# Custom sort function for proper prerelease ordering
+sort_versions() {
+    while IFS= read -r version; do
+        # Extract base version and prerelease suffix
+        base_version=$(echo "$version" | sed 's/-.*$//')
+        suffix=$(echo "$version" | sed 's/^[^-]*-*//; s/^$/stable/')
+        
+        # Create sortable key: base_version + prerelease_priority + suffix
+        case "$suffix" in
+            stable) priority="9" ;;
+            *alpha*) priority="1" ;;
+            *beta*) priority="2" ;;
+            *rc*) priority="3" ;;
+            *) priority="8" ;;
+        esac
+        
+        echo "$base_version|$priority|$suffix|$version"
+    done | sort -t'|' -k1,1V -k2,2n -k3,3V | cut -d'|' -f4
+}
+
 RELEASES=$(curl -s "https://api.github.com/repos/kubernetes/kubernetes/releases?per_page=100" | \
     jq -r '.[].tag_name' | \
-    grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | \
+    grep -E '^v[0-9]+\.[0-9]+\.[0-9]+.*' | \
     sed 's/^v//' | \
-    sort -V)
+    sort_versions)
 
 echo ""
 echo "📋 Current cluster: $CURRENT_VERSION"
+
+# Debug: Show a sample of fetched versions
+echo "🔍 Sample versions fetched (first 10):"
+echo "$RELEASES" | head -10
+echo ""
+
 echo "🎯 Available upgrade targets:"
 echo ""
 
@@ -44,10 +70,15 @@ for version in $RELEASES; do
     CLEAN_VERSION=$(echo "$version" | sed 's/-.*$//')
     IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_VERSION"
     
-    # Skip if version is older or same
+    # Skip if version is older (but allow prereleases of same base version)
     if [ "$MAJOR" -lt "$CURRENT_MAJOR" ] || \
        ([ "$MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$MINOR" -lt "$CURRENT_MINOR" ]) || \
-       ([ "$MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$MINOR" -eq "$CURRENT_MINOR" ] && [ "$PATCH" -le "$CURRENT_PATCH" ]); then
+       ([ "$MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$MINOR" -eq "$CURRENT_MINOR" ] && [ "$PATCH" -lt "$CURRENT_PATCH" ]); then
+        continue
+    fi
+    
+    # Skip if exact same version (but allow prereleases of same version)
+    if [ "$MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$MINOR" -eq "$CURRENT_MINOR" ] && [ "$PATCH" -eq "$CURRENT_PATCH" ] && [ "$version" = "$CLEAN_VERSION" ]; then
         continue
     fi
     
@@ -55,9 +86,18 @@ for version in $RELEASES; do
     MAJOR_JUMP=$((MAJOR - CURRENT_MAJOR))
     MINOR_JUMP=$((MINOR - CURRENT_MINOR))
     
-    # Same minor version (patch upgrades)
+    # Same minor version (patch upgrades or same version prereleases)
     if [ "$MAJOR_JUMP" -eq 0 ] && [ "$MINOR_JUMP" -eq 0 ]; then
-        echo "  ✅ $version (patch upgrade - safe)"
+        if [ "$version" = "$CLEAN_VERSION" ]; then
+            echo "  ✅ $version (patch upgrade - safe)"
+        else
+            # Check if it's a prerelease of same base version (downgrade) or patch prerelease
+            if [ "$PATCH" -eq "$CURRENT_PATCH" ]; then
+                echo "  ⚠️  $version (same version prerelease - downgrade, requires --allow-experimental-upgrades)"
+            else
+                echo "  ⚠️  $version (patch prerelease - requires --allow-experimental-upgrades)"
+            fi
+        fi
         VALID_UPGRADES+=("$version")
     
     # Next minor version only
