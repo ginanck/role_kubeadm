@@ -168,6 +168,10 @@
       ansible.builtin.debug:
         msg: "Upgrade needed: {{ upgrade_needed | bool | upper }}"
 
+    - name: Validate upgrade path
+      ansible.builtin.include_tasks: common/upgrade_validation.yml
+      when: upgrade_needed | default(false)
+
 
 # Upgrade Kubernetes Cluster
 # https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/

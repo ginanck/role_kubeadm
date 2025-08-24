@@ -1,0 +1,112 @@
+---
+
+- name: Check if versions are prerelease
+  ansible.builtin.set_fact:
+    current_is_prerelease: "{{ current_cluster_version is search('alpha|beta|rc') }}"
+    target_is_prerelease: "{{ kubernetes_cluster_config_kubernetes_version is search('alpha|beta|rc') }}"
+
+- name: Clean versions for comparison (remove prerelease suffixes)
+  ansible.builtin.set_fact:
+    current_clean_version: "{{ current_cluster_version | regex_replace('-.*$', '') }}"
+    target_clean_version: "{{ kubernetes_cluster_config_kubernetes_version | regex_replace('-.*$', '') }}"
+
+- name: Parse version components (using cleaned versions)
+  ansible.builtin.set_fact:
+    current_version_parts: "{{ current_clean_version.split('.') }}"
+    target_version_parts: "{{ target_clean_version.split('.') }}"
+
+- name: Extract version components
+  ansible.builtin.set_fact:
+    current_major: "{{ current_version_parts[0] | int }}"
+    current_minor: "{{ current_version_parts[1] | int }}"
+    current_patch: "{{ current_version_parts[2] | int }}"
+    target_major: "{{ target_version_parts[0] | int }}"
+    target_minor: "{{ target_version_parts[1] | int }}"
+    target_patch: "{{ target_version_parts[2] | int }}"
+
+- name: Calculate version differences
+  ansible.builtin.set_fact:
+    major_jump: "{{ target_major - current_major }}"
+    minor_jump: "{{ target_minor - current_minor }}"
+    patch_jump: "{{ target_patch - current_patch }}"
+
+- name: Display upgrade analysis
+  ansible.builtin.debug:
+    msg: |
+      Upgrade Analysis:
+      Current: {{ current_cluster_version }} {% if current_is_prerelease %}(prerelease){% endif %}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }} {% if target_is_prerelease %}(prerelease){% endif %}
+      Jump:    {{ major_jump }} major, {{ minor_jump }} minor, {{ patch_jump }} patch
+      Clean versions: {{ current_clean_version }} → {{ target_clean_version }}
+
+- name: Validate major version compatibility
+  ansible.builtin.fail:
+    msg: |
+      UPGRADE BLOCKED: Major version upgrade not supported
+      Current: {{ current_cluster_version }}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }}
+      
+      Major version upgrades ({{ current_major }}.x → {{ target_major }}.x) are not supported by kubeadm.
+      Please use the same major version.
+  when: major_jump != 0
+
+- name: Validate minor version jump limit
+  ansible.builtin.fail:
+    msg: |
+      UPGRADE BLOCKED: Minor version jump too large
+      Current: {{ current_cluster_version }}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }}
+      Jump:    {{ minor_jump }} minor versions
+      
+      Kubeadm only supports upgrading 1 minor version at a time.
+      Suggested upgrade path:
+      {% for step in range(current_minor + 1, target_minor + 1) %}
+      Step {{ loop.index }}: {{ current_major }}.{{ current_minor }}.x → {{ current_major }}.{{ step }}.x
+      {% endfor %}
+      
+      Please upgrade to {{ current_major }}.{{ current_minor + 1 }}.x first.
+  when: minor_jump > 1
+
+- name: Validate downgrade attempt
+  ansible.builtin.fail:
+    msg: |
+      UPGRADE BLOCKED: Downgrade not supported
+      Current: {{ current_cluster_version }}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }}
+      
+      Kubernetes downgrades are not supported by kubeadm.
+      Please choose a version >= {{ current_cluster_version }}
+  when: (major_jump < 0) or (major_jump == 0 and minor_jump < 0) or (major_jump == 0 and minor_jump == 0 and patch_jump < 0)
+
+- name: Validate prerelease upgrade permissions
+  ansible.builtin.fail:
+    msg: |
+      UPGRADE BLOCKED: Pre-release version requires permission
+      Current: {{ current_cluster_version }} {% if current_is_prerelease %}(prerelease){% endif %}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }} {% if target_is_prerelease %}(prerelease){% endif %}
+      
+      {% if target_is_prerelease and not current_is_prerelease %}
+      You are trying to upgrade from stable to pre-release version (alpha/beta/rc).
+      {% elif target_is_prerelease and current_is_prerelease %}
+      You are trying to upgrade between pre-release versions.
+      {% endif %}
+      Set kubernetes_allow_prerelease: true to allow experimental upgrades.
+      
+      WARNING: Pre-release versions may be unstable and not recommended for production.
+  when: 
+    - not kubernetes_allow_prerelease
+    - target_is_prerelease
+
+- name: Display upgrade validation result
+  ansible.builtin.debug:
+    msg: |
+      ✅ UPGRADE VALIDATION PASSED
+      Current: {{ current_cluster_version }} {% if current_is_prerelease %}(prerelease){% endif %}
+      Target:  {{ kubernetes_cluster_config_kubernetes_version }} {% if target_is_prerelease %}(prerelease){% endif %}
+      Type:    {% if minor_jump == 0 %}Patch upgrade{% elif minor_jump == 1 %}Minor upgrade{% endif %}
+      {% if target_is_prerelease %}
+      ⚠️  WARNING: Pre-release version upgrade
+      {% endif %}
+      {% if current_is_prerelease and not target_is_prerelease %}
+      ✅ STABILIZING: Upgrading from pre-release to stable version
+      {% endif %}

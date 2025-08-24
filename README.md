@@ -261,6 +261,35 @@ kubectl get pods -A
 - The role detects version changes in configuration
 - Performs rolling upgrades with proper node draining
 - Maintains cluster availability during upgrades
+- Validates upgrade paths to prevent invalid version jumps
+
+### Upgrade Path Planning
+
+Use the included upgrade planner script to determine valid upgrade paths:
+
+```bash
+# Check possible upgrades from your current version
+bash ./scripts/upgrade_planner.sh 1.30.11
+
+# Example output:
+# 🗺️  UPGRADE PLAN:
+#   Step 1: 1.30.11 → 1.30.13 (patch upgrade)
+#   Step 2: 1.30.13 → 1.31.12
+#   Step 3: 1.31.12 → 1.32.8
+#   Step 4: 1.32.8 → 1.33.4
+```
+
+The script shows:
+- ✅ Valid upgrade targets (respects kubeadm's 1-minor-version rule)
+- ❌ Blocked upgrades with clear reasons
+- ⚠️ Pre-release versions requiring `kubernetes_allow_prerelease: true`
+- 🗺️ Step-by-step upgrade plan
+
+**Upgrade Rules:**
+- **Minor versions**: Maximum 1 at a time (1.30→1.31, not 1.30→1.32)
+- **Patch versions**: Unlimited within same minor (1.30.11→1.30.13)
+- **Pre-releases**: Require `kubernetes_allow_prerelease: true`
+- **Downgrades**: Not supported
 
 ### Network Configuration
 - Automatically installs and configures Calico CNI
