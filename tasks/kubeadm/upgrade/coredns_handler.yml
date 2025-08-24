@@ -1,0 +1,75 @@
+---
+
+- name: try kubeadm upgrade plan (without ignoring CoreDNS errors)
+  ansible.builtin.command: >
+    kubeadm upgrade plan --ignore-preflight-errors=CreateJob
+  register: upgrade_plan_initial
+  changed_when: false
+  failed_when: false
+
+- name: check if CoreDNS errors occurred
+  ansible.builtin.set_fact:
+    coredns_upgrade_needed: "{{ 'CoreDNSUnsupportedPlugins' in upgrade_plan_initial.stderr or 'CoreDNSMigration' in upgrade_plan_initial.stderr }}"
+    upgrade_plan_failed: "{{ upgrade_plan_initial.rc != 0 }}"
+
+- name: display CoreDNS upgrade analysis
+  ansible.builtin.debug:
+    msg: |
+      CoreDNS Analysis:
+      Upgrade needed: {{ coredns_upgrade_needed | bool | upper }}
+      Plan failed: {{ upgrade_plan_failed | bool | upper }}
+      {% if coredns_upgrade_needed %}
+      CoreDNS will be handled automatically.
+      {% endif %}
+
+- name: get CoreDNS compatibility version for Kubernetes {{ kubernetes_cluster_config_kubernetes_version }}
+  ansible.builtin.set_fact:
+    required_coredns_version: >-
+      {% if kubernetes_cluster_config_kubernetes_version is version('1.29.0', '>=') %}v1.11.1{% 
+      elif kubernetes_cluster_config_kubernetes_version is version('1.27.0', '>=') %}v1.10.1{% 
+      elif kubernetes_cluster_config_kubernetes_version is version('1.25.0', '>=') %}v1.9.3{% 
+      else %}v1.8.6{% endif %}
+
+- name: upgrade CoreDNS when needed
+  when: 
+    - coredns_upgrade_needed
+    - upgrade_plan_failed
+  block:
+    - name: get current CoreDNS version
+      ansible.builtin.shell: kubectl get deployment coredns -n kube-system -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2
+      register: current_coredns_version
+      changed_when: false
+
+    - name: display CoreDNS version information
+      ansible.builtin.debug:
+        msg: |
+          CoreDNS Version Information:
+          Current: {{ current_coredns_version.stdout }}
+          Required for K8s {{ kubernetes_cluster_config_kubernetes_version }}: {{ required_coredns_version }}
+
+    - name: upgrade CoreDNS deployment
+      ansible.builtin.shell: |
+        kubectl patch deployment coredns -n kube-system -p '{"spec":{"template":{"spec":{"containers":[{"name":"coredns","image":"registry.k8s.io/coredns/coredns:{{ required_coredns_version }}"}]}}}}'
+        kubectl rollout status deployment/coredns -n kube-system --timeout=300s
+      register: coredns_upgrade_result
+
+    - name: verify CoreDNS upgrade
+      ansible.builtin.shell: kubectl get deployment coredns -n kube-system -o jsonpath='{.spec.template.spec.containers[0].image}'
+      register: new_coredns_version
+      changed_when: false
+
+    - name: display CoreDNS upgrade result
+      ansible.builtin.debug:
+        msg: |
+          CoreDNS upgrade completed:
+          New image: {{ new_coredns_version.stdout }}
+
+- name: set upgrade plan strategy
+  ansible.builtin.set_fact:
+    ignore_coredns_errors: "{{ not (coredns_upgrade_needed and upgrade_plan_failed) }}"
+
+- name: final kubeadm upgrade plan
+  ansible.builtin.command: >
+    kubeadm upgrade plan {% if ignore_coredns_errors %}--ignore-preflight-errors=CreateJob,CoreDNSUnsupportedPlugins,CoreDNSMigration{% else %}--ignore-preflight-errors=CreateJob{% endif %}
+  register: upgrade_plan_result
+  changed_when: false
