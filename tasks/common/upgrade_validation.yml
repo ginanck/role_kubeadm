@@ -26,9 +26,9 @@
 
 - name: Calculate version differences
   ansible.builtin.set_fact:
-    major_jump: "{{ target_major - current_major }}"
-    minor_jump: "{{ target_minor - current_minor }}"
-    patch_jump: "{{ target_patch - current_patch }}"
+    major_jump: "{{ (target_major | int) - (current_major | int) | int }}"
+    minor_jump: "{{ (target_minor | int) - (current_minor | int) | int }}"
+    patch_jump: "{{ (target_patch | int) - (current_patch | int) | int }}"
 
 - name: Display upgrade analysis
   ansible.builtin.debug:
@@ -48,7 +48,7 @@
       
       Major version upgrades ({{ current_major }}.x → {{ target_major }}.x) are not supported by kubeadm.
       Please use the same major version.
-  when: major_jump != 0
+  when: major_jump | int != 0
 
 - name: Validate minor version jump limit
   ansible.builtin.fail:
@@ -65,7 +65,7 @@
       {% endfor %}
       
       Please upgrade to {{ current_major }}.{{ current_minor + 1 }}.x first.
-  when: minor_jump > 1
+  when: minor_jump | int > 1
 
 - name: Validate downgrade attempt
   ansible.builtin.fail:
@@ -76,7 +76,7 @@
       
       Kubernetes downgrades are not supported by kubeadm.
       Please choose a version >= {{ current_cluster_version }}
-  when: (major_jump < 0) or (major_jump == 0 and minor_jump < 0) or (major_jump == 0 and minor_jump == 0 and patch_jump < 0)
+  when: (major_jump | int < 0) or (major_jump | int == 0 and minor_jump | int < 0) or (major_jump | int == 0 and minor_jump | int == 0 and patch_jump | int < 0)
 
 - name: Validate prerelease upgrade permissions
   ansible.builtin.fail:
@@ -103,7 +103,7 @@
       ✅ UPGRADE VALIDATION PASSED
       Current: {{ current_cluster_version }} {% if current_is_prerelease %}(prerelease){% endif %}
       Target:  {{ kubernetes_cluster_config_kubernetes_version }} {% if target_is_prerelease %}(prerelease){% endif %}
-      Type:    {% if minor_jump == 0 %}Patch upgrade{% elif minor_jump == 1 %}Minor upgrade{% endif %}
+      Type:    {% if minor_jump | int == 0 %}Patch upgrade{% elif minor_jump | int == 1 %}Minor upgrade{% endif %}
       {% if target_is_prerelease %}
       ⚠️  WARNING: Pre-release version upgrade
       {% endif %}

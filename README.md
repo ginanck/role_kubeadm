@@ -269,7 +269,7 @@ Use the included upgrade planner script to determine valid upgrade paths:
 
 ```bash
 # Check possible upgrades from your current version
-bash ./scripts/upgrade_planner.sh 1.30.11
+bash scripts/upgrade_planner.sh 1.30.11
 
 # Example output:
 # 🗺️  UPGRADE PLAN:
