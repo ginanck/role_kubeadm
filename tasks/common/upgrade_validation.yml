@@ -90,11 +90,11 @@
       {% elif target_is_prerelease and current_is_prerelease %}
       You are trying to upgrade between pre-release versions.
       {% endif %}
-      Set kubernetes_allow_prerelease: true to allow experimental upgrades.
+      Set kubernetes_release_allow_prerelease: true to allow experimental upgrades.
       
       WARNING: Pre-release versions may be unstable and not recommended for production.
   when: 
-    - not kubernetes_allow_prerelease
+    - not kubernetes_release_allow_prerelease
     - target_is_prerelease
 
 - name: Display upgrade validation result

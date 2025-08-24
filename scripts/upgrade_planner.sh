@@ -157,7 +157,7 @@ echo "💡 RECOMMENDATIONS:"
 echo "  • Always backup your cluster before upgrading"
 echo "  • Test upgrades in non-production environments first"
 echo "  • Upgrade one minor version at a time"
-echo "  • For prerelease versions, set kubernetes_allow_prerelease: true"
+echo "  • For prerelease versions, set kubernetes_release_allow_prerelease: true"
 
 echo ""
 echo "🔧 ANSIBLE COMMANDS:"

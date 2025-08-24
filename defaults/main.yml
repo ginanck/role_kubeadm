@@ -125,11 +125,10 @@ kubernetes_binary_dir: /opt/k8s/bin
 kubernetes_binary_link_path: /usr/bin
 kubernetes_systemd_path: /etc/systemd/system
 
+kubernetes_release_allow_prerelease: false      # Enable alpha/beta/rc version upgrades
 kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}"    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
 kubernetes_release_arch: amd64
 
-kubernetes_release_type: latest         # "stable" or "latest" for k8s versions
 kubernetes_release_base_url: https://dl.k8s.io/release
 kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
-kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases{% if kubernetes_release_type == 'latest' %}/latest{% else %}?per_page=1{% endif %}"
-kubernetes_allow_prerelease: false      # Enable alpha/beta/rc version upgrades
+kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases{% if kubernetes_cluster_config_kubernetes_version == 'latest' %}/latest{% else %}?per_page=1{% endif %}"

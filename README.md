@@ -282,13 +282,13 @@ bash scripts/upgrade_planner.sh 1.30.11
 The script shows:
 - ✅ Valid upgrade targets (respects kubeadm's 1-minor-version rule)
 - ❌ Blocked upgrades with clear reasons
-- ⚠️ Pre-release versions requiring `kubernetes_allow_prerelease: true`
+- ⚠️ Pre-release versions requiring `kubernetes_release_allow_prerelease: true`
 - 🗺️ Step-by-step upgrade plan
 
 **Upgrade Rules:**
 - **Minor versions**: Maximum 1 at a time (1.30→1.31, not 1.30→1.32)
 - **Patch versions**: Unlimited within same minor (1.30.11→1.30.13)
-- **Pre-releases**: Require `kubernetes_allow_prerelease: true`
+- **Pre-releases**: Require `kubernetes_release_allow_prerelease: true`
 - **Downgrades**: Not supported
 
 ### Network Configuration

@@ -25,7 +25,7 @@
 - name: apply kubeadm upgrade on init master
   ansible.builtin.command: >
     kubeadm upgrade apply v{{ kubernetes_cluster_config_kubernetes_version }} --yes {% if ignore_coredns_errors %}--ignore-preflight-errors=CreateJob,CoreDNSUnsupportedPlugins,CoreDNSMigration{% else %}--ignore-preflight-errors=CreateJob{% endif %}
-    {% if kubernetes_allow_prerelease %}--allow-experimental-upgrades --allow-release-candidate-upgrades --force{% endif %}
+    {% if kubernetes_release_allow_prerelease %}--allow-experimental-upgrades --allow-release-candidate-upgrades --force{% endif %}
   register: upgrade_apply_result
 
 - name: display upgrade apply result

@@ -1,7 +1,7 @@
 ---
 
-- name: Fetch latest stable Kubernetes version
-  when: kubernetes_release_type == 'latest'
+- name: Fetch latest Kubernetes version
+  when: kubernetes_cluster_config_kubernetes_version == 'latest'
   delegate_to: localhost
   become: false
   block:
