@@ -1,0 +1,20 @@
+---
+# Helm-based component installations
+
+- name: Handle Helm Chart Installations
+  ansible.builtin.include_tasks: kubeadm/helm/chart.yml
+  loop: "{{ helm_charts}}"
+  loop_control: 
+    loop_var: chart
+  when: 
+    - helm_charts is defined
+    - helm_charts | length > 0
+
+- name: Handle Additional Helm Chart Installations
+  ansible.builtin.include_tasks: kubeadm/helm/chart.yml
+  loop: "{{ helm_charts_additional_repositories }}"
+  loop_control: 
+    loop_var: chart
+  when: 
+    - helm_charts is defined
+    - helm_charts | length > 0

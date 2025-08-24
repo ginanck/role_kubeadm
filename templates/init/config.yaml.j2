@@ -1,11 +1,14 @@
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 nodeRegistration:
-  name: {{ ansible_hostname }}
+  name: {{ node_hostname }}
   criSocket: "{{ kubernetes_kubelet_containerRuntimeEndpoint }}"
+  kubeletExtraArgs:
+    node-ip: {{ ansible_default_ipv4.address }}
   taints:
   - key: node-role.kubernetes.io/control-plane
     effect: NoSchedule
+  imagePullPolicy: "IfNotPresent"
 localAPIEndpoint:
   advertiseAddress: {{ kubernetes_cluster_init_config_local_advertise_address }}
   bindPort: {{ kubernetes_cluster_init_config_local_advertise_port }}
@@ -28,6 +31,14 @@ apiServer:
 {% for master in groups['k8s_master'] %}
   - "{{ hostvars[master]['ansible_default_ipv4']['address'] }}"
 {% endfor %}
+{% for worker in groups['k8s_worker'] %}
+  - "{{ hostvars[worker]['ansible_default_ipv4']['address'] }}"
+{% endfor %}
+{% if kubernetes_cluster_config_additional_sans is defined and kubernetes_cluster_config_additional_sans | length > 0 %}
+{% for san in kubernetes_cluster_config_additional_sans %}
+  - "{{ san }}"
+{% endfor %}
+{% endif %}
   - "kubernetes"
   - "kubernetes.default"
   - "kubernetes.default.svc"
@@ -55,11 +66,29 @@ containerRuntimeEndpoint: unix://{{ kubernetes_kubelet_containerRuntimeEndpoint 
 cgroupDriver: {{ kubernetes_kubelet_cgroupDriver }}
 failSwapOn: {{ kubernetes_kubelet_failSwapOn | bool | lower }}
 serverTLSBootstrap: {{ kubernetes_kubelet_serverTLSBootstrap | bool | lower }}
+rotateCertificates: true
+# Add these for better TLS certificate handling
+tlsCertFile: ""  # Let kubelet generate certificates automatically
+tlsPrivateKeyFile: ""  # Let kubelet generate private keys automatically
+# Optional: Add authentication settings
+authentication:
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+  webhook:
+    enabled: true
+    cacheTTL: 2m0s
+  anonymous:
+    enabled: false
+authorization:
+  mode: Webhook
+  webhook:
+    cacheAuthorizedTTL: 5m0s
+    cacheUnauthorizedTTL: 30s
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
 mode: "{{ kubernetes_cluster_proxy_mode }}"
 {% if kubernetes_cluster_proxy_mode | default('iptables') %}
 ipvs:
-  strictARP: {{ kubernetes_kubelet_serverTLSBootstrap | bool | lower }}
+  strictARP: {{ kubernetes_cluster_proxy_ipvs_strict_arp | bool | lower }}
 {% endif %}

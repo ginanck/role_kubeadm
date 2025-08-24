@@ -1,5 +1,198 @@
 ---
 
-# TODO:
-# Add support for removing master nodes
-# Add support for removing worker nodes
+- name: Install kubernetes Python library for k8s modules
+  ansible.builtin.pip:
+    name: 
+      - kubernetes
+      - PyYAML
+    state: present
+
+- name: Safety check - prevent removing current init master
+  ansible.builtin.set_fact:
+    current_init_master_hostname: >-
+      {{
+        hostvars[init_master_node]['base_hostname'] | default(hostvars[init_master_node]['node_hostname']) | default(init_master_node)
+      }}
+
+- name: Display safety check result
+  ansible.builtin.debug:
+    msg: "Init master hostname: {{ current_init_master_hostname }}, Retiring node: {{ node.hostname }}"
+
+- name: Skip init master node removal
+  ansible.builtin.debug:
+    msg: "SAFETY: Skipping removal of init master node '{{ node.hostname }}' to prevent cluster destruction"
+  when: node.hostname == current_init_master_hostname
+
+- name: Cluster management operations (executed on init master)
+  when:
+    - node.hostname != current_init_master_hostname
+    - inventory_hostname == init_master_node
+  block:
+    - name: Get all current cluster nodes
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Node
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: all_nodes_result
+      ignore_errors: true
+      run_once: true
+
+    - name: Get current etcd member list
+      ansible.builtin.command: |
+        etcdctl member list \
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+        --cert=/etc/kubernetes/pki/etcd/server.crt \
+        --key=/etc/kubernetes/pki/etcd/server.key \
+        -w simple
+      register: etcd_members_result
+      changed_when: false
+      run_once: true
+      ignore_errors: true
+
+    - name: Parse etcd member list from simple format
+      ansible.builtin.set_fact:
+        etcd_members_parsed: >-
+          {{
+            etcd_members_result.stdout_lines | map('regex_replace', '([^,]+), [^,]+, ([^,]+), .*', '\1:\2') | list
+          }}
+      run_once: true
+      when: 
+        - etcd_members_result is defined
+        - etcd_members_result.stdout is defined
+
+    - name: Check if node exists in cluster
+      ansible.builtin.set_fact:
+        node_exists_in_cluster: >-
+          {{
+            all_nodes_result.resources | 
+            selectattr('metadata.name', 'equalto', node.hostname) | 
+            list | length > 0
+          }}
+      when: 
+        - all_nodes_result is defined
+        - all_nodes_result.resources is defined
+
+    - name: Check if node exists in etcd
+      ansible.builtin.set_fact:
+        node_exists_in_etcd: >-
+          {{
+            etcd_members_parsed | 
+            select('regex', '.*:' + node.hostname + '$') | 
+            list | length > 0
+          }}
+      when: etcd_members_parsed is defined
+
+    - name: Create node to etcd member ID mapping
+      ansible.builtin.set_fact:
+        node_etcd_mapping: >-
+          {{
+            etcd_members_parsed | 
+            select('regex', '.*:' + node.hostname + '$') | 
+            map('regex_replace', '([^:]+):.*', '\1') | 
+            list | first | default(none)
+          }}
+      when: 
+        - etcd_members_parsed is defined
+        - node_exists_in_etcd | default(false)
+
+    - name: Display node status
+      ansible.builtin.debug:
+        msg: |
+          Node: {{ node.hostname }}
+          Exists in cluster: {{ node_exists_in_cluster | default('unknown') }}
+          Exists in etcd: {{ node_exists_in_etcd | default('unknown') }}
+          Etcd member ID: {{ node_etcd_mapping | default('N/A') }}
+
+    - name: Drain node before removal
+      kubernetes.core.k8s_drain:
+        name: "{{ node.hostname }}"
+        state: drain
+        delete_options:
+          delete_emptydir_data: true
+          force: "{{ node.force_delete | default(false) }}"
+          ignore_daemonsets: true
+          terminate_grace_period: 10
+          wait_sleep: 10
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      when: node_exists_in_cluster | default(false)
+
+    - name: Remove node from cluster
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ node.hostname }}"
+        state: absent
+        force: "{{ node.force_delete | default(false) }}"
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      when: node_exists_in_cluster | default(false)
+
+    - name: Display node already removed from cluster
+      ansible.builtin.debug:
+        msg: "Node '{{ node.hostname }}' is already removed from Kubernetes cluster"
+      when: not (node_exists_in_cluster | default(false))
+
+    - name: Remove node from etcd cluster
+      ansible.builtin.command: |
+        etcdctl member remove {{ node_etcd_mapping }} \
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+        --cert=/etc/kubernetes/pki/etcd/server.crt \
+        --key=/etc/kubernetes/pki/etcd/server.key
+      when: 
+        - node_exists_in_etcd | default(false)
+        - node_etcd_mapping is defined
+        - node_etcd_mapping != none
+        - node_etcd_mapping != ''
+      ignore_errors: true
+
+    - name: Display removed etcd member
+      ansible.builtin.debug:
+        msg: "Removed etcd member '{{ node.hostname }}' with ID: {{ node_etcd_mapping }}"
+      when: 
+        - node_exists_in_etcd | default(false)
+        - node_etcd_mapping is defined
+        - node_etcd_mapping != none
+        - node_etcd_mapping != ''
+
+    - name: Display node not in etcd
+      ansible.builtin.debug:
+        msg: "Node '{{ node.hostname }}' is not found in etcd cluster"
+      when: not (node_exists_in_etcd | default(false))
+
+    - name: Get latest etcd member list
+      ansible.builtin.command: |
+        etcdctl member list \
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+        --cert=/etc/kubernetes/pki/etcd/server.crt \
+        --key=/etc/kubernetes/pki/etcd/server.key \
+        -w simple
+      register: etcd_updated_member_list
+      changed_when: false
+      run_once: true
+
+    - name: Display updated etcd member list
+      ansible.builtin.debug:
+        msg: "{{ etcd_updated_member_list.stdout_lines }}"
+      when: 
+        - etcd_updated_member_list is defined
+        - etcd_updated_member_list.stdout is defined
+
+- name: Node cleanup operations (executed on target nodes)
+  when: node.hostname != current_init_master_hostname
+  block:
+    - name: Reset kubeadm on retired node
+      ansible.builtin.command: kubeadm reset --force
+      delegate_to: "{{ node.ip }}"
+      ignore_errors: true
+
+    - name: Clean up kubectl config on retired node
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/kubernetes/
+        - ~/.kube/
+      delegate_to: "{{ node.ip }}"
+      ignore_errors: true

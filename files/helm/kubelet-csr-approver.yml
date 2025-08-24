@@ -1,0 +1,19 @@
+## kubelet-csr-approver configuration
+## Ref: https://github.com/postfinance/kubelet-csr-approver
+## Ref: https://artifacthub.io/packages/helm/kubelet-csr-approver/kubelet-csr-approver
+
+global:
+  clusterDomain: cluster.local
+
+bypassHostnameCheck: true
+bypassDnsResolution: true
+
+providerIpPrefixes:
+  - 172.16.2.0/23
+
+maxExpirationSeconds: 7200
+allowedDnsNames: 10
+skipDenyStep: true
+loggingLevel: 2
+
+replicas: 1

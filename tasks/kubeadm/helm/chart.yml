@@ -1,0 +1,42 @@
+---
+# Generic Helm Chart deployment tasks
+
+- name: "Copy/Clean {{ chart.chart_name }} Helm values files to remote host"
+  ansible.builtin.copy:
+    src: "files/helm/{{ chart.chart_name }}.yml"
+    dest: "/tmp/{{ chart.chart_name }}-values.yml"
+    mode: '0644'
+
+- name: "Add/Remove {{ chart.chart_name }} Helm repository"
+  kubernetes.core.helm_repository:
+    name: "{{ chart.chart_name }}"
+    repo_url: "{{ chart.chart_url }}"
+    state: "{{ chart.state }}"
+  environment:
+    KUBECONFIG: "{{ kubernetes_kubeconfig_path }}"
+
+- name: "Install/upgrade {{ chart.chart_name }} Helm chart"
+  kubernetes.core.helm:
+    name: "{{ chart.chart_name }}"
+    chart_ref: "{{ chart.chart_ref }}"
+    chart_version: "{{ chart.chart_version | default(omit) }}"
+    release_namespace: "{{ chart.release_namespace }}"
+    create_namespace: "{{ chart.create_namespace | default(false) }}"
+    values_files: "{{ (['/tmp/' + chart.chart_name + '-values.yml'] if (chart.values_files | default([]) | length == 0) else chart.values_files) }}"
+    state: "{{ chart.state }}"
+    wait: "{{ chart.wait | default(false) }}"
+    wait_timeout: "{{ chart.wait_timeout | default(helm_charts_wait_timeout) }}"
+    force: "{{ chart.force_update | default(false) }}"
+    disable_hook: "{{ chart.disable_hook | default(false) }}"
+    replace: "{{ chart.replace | default(false) }}"
+    atomic: "{{ chart.atomic | default(false) }}"
+    skip_crds: "{{ chart.skip_crds | default(false) }}"
+  environment:
+    KUBECONFIG: "{{ kubernetes_kubeconfig_path }}"
+  register: chart_install_result
+
+- name: "Display {{ chart.chart_name }} installation result"
+  ansible.builtin.debug:
+    msg: "Successfully Helm chart {{ chart.chart_name }} has been {{ chart.state }}"
+  when: 
+    - chart_install_result is succeeded

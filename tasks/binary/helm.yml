@@ -1,0 +1,105 @@
+---
+
+# Helm version management and installation
+- name: Fetch latest Helm version
+  when: helm_version == 'latest'
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Query Helm version from GitHub
+      ansible.builtin.uri:
+        url: "{{ helm_release_upstream_url }}"
+        return_content: yes
+        validate_certs: no
+        timeout: 15
+      register: helm_github_version
+      retries: "{{ kubernetes_kubeadm_retry }}"
+      delay: "{{ kubernetes_kubeadm_delay }}"
+      until: helm_github_version is succeeded
+
+    - name: Set Helm release version from GitHub
+      ansible.builtin.set_fact:
+        helm_release_version: "{{ helm_github_version.json.tag_name }}"
+      when: helm_github_version is succeeded
+
+- name: Validate specified Helm version
+  when: helm_version != 'latest'
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Ensure Helm version starts with 'v'
+      ansible.builtin.set_fact:
+        helm_release_version: "{{ 'v' + helm_version if not helm_version.startswith('v') else helm_version }}"
+
+- name: Display selected Helm version
+  ansible.builtin.debug:
+    msg: "Selected Helm version: {{ helm_release_version }}"
+
+- name: Create download directory for Helm
+  ansible.builtin.file:
+    path: "{{ kubernetes_binary_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Set versioned Helm binary name
+  ansible.builtin.set_fact:
+    helm_versioned_binary_name: "helm-{{ helm_release_version }}"
+    helm_download_url: "https://get.helm.sh/helm-{{ helm_release_version }}-{{ helm_release_os }}-{{ helm_release_arch }}.tar.gz"
+
+- name: Check if versioned Helm binary already exists
+  ansible.builtin.stat:
+    path: "{{ kubernetes_binary_dir }}/{{ helm_versioned_binary_name }}"
+  register: helm_binary_stat
+
+- name: Download and install Helm
+  when: not helm_binary_stat.stat.exists
+  block:
+    - name: Create temporary directory for Helm download
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: helm_install
+      register: helm_temp_dir
+
+    - name: Download Helm tarball
+      ansible.builtin.get_url:
+        url: "{{ helm_download_url }}"
+        dest: "{{ helm_temp_dir.path }}/helm.tar.gz"
+        mode: '0644'
+        validate_certs: false
+        timeout: 180
+
+    - name: Extract Helm tarball
+      ansible.builtin.unarchive:
+        src: "{{ helm_temp_dir.path }}/helm.tar.gz"
+        dest: "{{ helm_temp_dir.path }}"
+        remote_src: yes
+        creates: "{{ helm_temp_dir.path }}/{{ helm_release_os }}-{{ helm_release_arch }}/helm"
+
+    - name: Install Helm binary to versioned location
+      ansible.builtin.copy:
+        src: "{{ helm_temp_dir.path }}/{{ helm_release_os }}-{{ helm_release_arch }}/helm"
+        dest: "{{ kubernetes_binary_dir }}/{{ helm_versioned_binary_name }}"
+        mode: '0755'
+        remote_src: yes
+
+    - name: Remove temporary directory
+      ansible.builtin.file:
+        path: "{{ helm_temp_dir.path }}"
+        state: absent
+
+- name: Set up alternatives for Helm binary
+  community.general.alternatives:
+    name: "helm"
+    path: "{{ kubernetes_binary_dir }}/{{ helm_versioned_binary_name }}"
+    link: "{{ kubernetes_binary_link_path }}/helm"
+    priority: "{{ ansible_date_time.epoch | int }}"
+    state: selected
+
+- name: Verify Helm installation
+  ansible.builtin.command: "{{ kubernetes_binary_link_path }}/helm version --template='{{ '{{' }}.Version{{ '}}' }}'"
+  register: helm_version_check
+  changed_when: false
+
+- name: Display installed Helm version
+  ansible.builtin.debug:
+    msg: "Installed Helm version: {{ helm_version_check.stdout }}"

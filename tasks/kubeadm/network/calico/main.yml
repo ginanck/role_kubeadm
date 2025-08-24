@@ -1,7 +1,18 @@
 ---
 
-- name: install pod network add-on
-  ansible.builtin.command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/{{ kubernetes_calico_version }}/manifests/calico.yaml
+- name: Set Calico manifest URL based on deployment type
+  ansible.builtin.set_fact:
+    calico_manifest_url: "{{ kubernetes_calico_base_url }}/{{ kubernetes_calico_version }}/manifests/{{ kubernetes_calico_manifests[kubernetes_calico_deployment_type] }}"
+
+- name: Display selected Calico deployment type and manifest
+  ansible.builtin.debug:
+    msg: 
+      - "Calico deployment type: {{ kubernetes_calico_deployment_type }}"
+      - "Calico manifest file: {{ kubernetes_calico_manifests[kubernetes_calico_deployment_type] }}"
+      - "Full manifest URL: {{ calico_manifest_url }}"
+
+- name: Install Calico pod network add-on ({{ kubernetes_calico_deployment_type }} deployment)
+  ansible.builtin.command: kubectl apply -f {{ calico_manifest_url }}
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   register: network_addon
