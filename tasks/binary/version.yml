@@ -5,18 +5,19 @@
   delegate_to: localhost
   become: false
   block:
-    - name: Query latest stable Kubernetes version
+    - name: Query Kubernetes version from GitHub
       ansible.builtin.uri:
         url: "{{ kubernetes_release_upstream_url }}"
         return_content: yes
         validate_certs: no
         timeout: 15
-      register: stable_version
+      register: github_version
       retries: "{{ kubernetes_kubeadm_retry }}"
       delay: "{{ kubernetes_kubeadm_delay }}"
-      until: stable_version is succeeded
+      until: github_version is succeeded
 
-    - name: Set release to latest stable version
+    - name: Set release version from GitHub
       ansible.builtin.set_fact:
-        kubernetes_release_version: "{{ stable_version.content | trim }}"
-      when: stable_version is succeeded
+        kubernetes_release_version: "{{ github_version.json.tag_name }}"
+        kubernetes_cluster_config_kubernetes_version: "{{ github_version.json.tag_name | regex_replace('^v', '') }}"
+      when: github_version is succeeded

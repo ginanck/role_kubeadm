@@ -22,7 +22,7 @@ kubernetes_cluster_init_config_local_advertise_port: 6443
 kubernetes_cluster_config_control_plane_endpoint_url: 172.16.3.101
 kubernetes_cluster_config_control_plane_endpoint_port: 6443
 
-kubernetes_cluster_config_kubernetes_version: 1.30.13
+kubernetes_cluster_config_kubernetes_version: 1.30.11
 kubernetes_cluster_config_cluster_name: kubernetes
 kubernetes_cluster_config_networking_service_subnet: "10.96.0.0/12"
 kubernetes_cluster_config_networking_pod_subnet: "10.244.0.0/16"
@@ -128,7 +128,8 @@ kubernetes_systemd_path: /etc/systemd/system
 kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}"    # Stable kubernetes version to install, please check the latest version from "k8s_releases" section above
 kubernetes_release_arch: amd64
 
-kubernetes_release_type: stable         # "stable" or "latest" for k8s versions
-kubernetes_release_base_url: https://dl.k8s.io
+kubernetes_release_type: latest         # "stable" or "latest" for k8s versions
+kubernetes_release_base_url: https://dl.k8s.io/release
 kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
-kubernetes_release_upstream_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_type }}.txt"
+kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases{% if kubernetes_release_type == 'latest' %}/latest{% else %}?per_page=1{% endif %}"
+kubernetes_allow_prerelease: false      # Enable alpha/beta/rc version upgrades
