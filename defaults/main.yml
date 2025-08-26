@@ -172,8 +172,7 @@ helm_charts:
     chart_url: https://postfinance.github.io/kubelet-csr-approver
     chart_version: "1.2.10"                  # Chart version, leave empty for latest
     release_namespace: "kube-system"
-    values_files:
-      - "/tmp/kubelet-csr-approver-values.yml"
+    values_file: kubelet-csr-approver.yml
     state: present
 
   # Metrics Server - Provides resource usage metrics
@@ -182,8 +181,7 @@ helm_charts:
     chart_url: https://kubernetes-sigs.github.io/metrics-server/
     chart_version: "3.13.0"                 # Chart version, leave empty for latest
     release_namespace: "kube-system"
-    values_files:
-      - "/tmp/metrics-server-values.yml"
+    values_file: metrics-server.yml
     state: present
 
   # NGINX Ingress Controller - Manages ingress traffic
@@ -193,8 +191,7 @@ helm_charts:
     chart_version: "4.13.1"                 # Chart version, leave empty for latest
     release_namespace: "ingress-nginx"       # Changed to dedicated namespace
     create_namespace: true
-    values_files:
-      - "/tmp/ingress-nginx-values.yml"
+    values_file: ingress-nginx.yml
     state: present
 
 helm_charts_additional_repositories: []

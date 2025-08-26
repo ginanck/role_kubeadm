@@ -3,8 +3,8 @@
 
 - name: "Copy/Clean {{ chart.chart_name }} Helm values files to remote host"
   ansible.builtin.copy:
-    src: "files/helm/{{ chart.chart_name }}.yml"
-    dest: "/tmp/{{ chart.chart_name }}-values.yml"
+    src: "files/helm/{{ chart.values_file }}"
+    dest: "/tmp/{{ chart.values_file }}-values.yml"
     mode: '0644'
 
 - name: "Add/Remove {{ chart.chart_name }} Helm repository"
@@ -22,7 +22,7 @@
     chart_version: "{{ chart.chart_version | default(omit) }}"
     release_namespace: "{{ chart.release_namespace }}"
     create_namespace: "{{ chart.create_namespace | default(false) }}"
-    values_files: "{{ (['/tmp/' + chart.chart_name + '-values.yml'] if (chart.values_files | default([]) | length == 0) else chart.values_files) }}"
+    values_files: "/tmp/{{ chart.values_file }}-values.yml"
     state: "{{ chart.state }}"
     wait: "{{ chart.wait | default(false) }}"
     wait_timeout: "{{ chart.wait_timeout | default(helm_charts_wait_timeout) }}"

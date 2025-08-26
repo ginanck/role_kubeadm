@@ -6,6 +6,7 @@
   loop: "{{ helm_charts}}"
   loop_control: 
     loop_var: chart
+    label: "{{ chart.chart_name }}"
   when: 
     - helm_charts is defined
     - helm_charts | length > 0
@@ -15,6 +16,7 @@
   loop: "{{ helm_charts_additional_repositories }}"
   loop_control: 
     loop_var: chart
+    label: "{{ chart.chart_name }}"
   when: 
     - helm_charts is defined
     - helm_charts | length > 0
