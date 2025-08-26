@@ -83,3 +83,15 @@
     state: started
     enabled: yes
     daemon_reload: yes
+
+- name: Setup Helm version and binary
+  ansible.builtin.include_tasks: binary/helm.yml
+  when: 
+    - helm_install_enabled | default(false)
+    - inventory_hostname in groups['k8s_master']
+
+- name: Setup etcd version and binaries
+  ansible.builtin.include_tasks: binary/etcdctl.yml
+  when: 
+    - etcd_install_enabled | default(false)
+    - inventory_hostname in groups['k8s_master']

@@ -1,0 +1,106 @@
+---
+
+# etcdctl version management and installation (client only)
+- name: Fetch latest etcd version
+  when: etcd_version == 'latest'
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Query etcd version from GitHub
+      ansible.builtin.uri:
+        url: "{{ etcd_release_upstream_url }}"
+        return_content: yes
+        validate_certs: no
+        timeout: 15
+      register: etcd_github_version
+      retries: "{{ kubernetes_kubeadm_retry }}"
+      delay: "{{ kubernetes_kubeadm_delay }}"
+      until: etcd_github_version is succeeded
+
+    - name: Set etcd release version from GitHub
+      ansible.builtin.set_fact:
+        etcd_release_version: "{{ etcd_github_version.json.tag_name }}"
+      when: etcd_github_version is succeeded
+
+- name: Validate specified etcd version
+  when: etcd_version != 'latest'
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Ensure etcd version starts with 'v'
+      ansible.builtin.set_fact:
+        etcd_release_version: "{{ 'v' + etcd_version if not etcd_version.startswith('v') else etcd_version }}"
+
+- name: Display selected etcd version
+  ansible.builtin.debug:
+    msg: "Selected etcd version: {{ etcd_release_version }}"
+
+- name: Create download directory for etcdctl
+  ansible.builtin.file:
+    path: "{{ kubernetes_binary_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Set versioned etcdctl binary name and download URL
+  ansible.builtin.set_fact:
+    etcdctl_versioned_binary_name: "etcdctl-{{ etcd_release_version }}"
+    etcd_download_url: "https://github.com/etcd-io/etcd/releases/download/{{ etcd_release_version }}/etcd-{{ etcd_release_version }}-{{ etcd_release_os }}-{{ etcd_release_arch }}.tar.gz"
+
+- name: Check if versioned etcdctl binary already exists
+  ansible.builtin.stat:
+    path: "{{ kubernetes_binary_dir }}/{{ etcdctl_versioned_binary_name }}"
+  register: etcdctl_binary_stats
+
+- name: Download and install etcdctl
+  when: etcdctl_binary_stats.stat.exists is false
+  block:
+    - name: Create temporary directory for etcdctl download
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: etcdctl_install
+      register: etcdctl_temp_dir
+
+    - name: Download etcd tarball (for etcdctl client)
+      ansible.builtin.get_url:
+        url: "{{ etcd_download_url }}"
+        dest: "{{ etcdctl_temp_dir.path }}/etcd.tar.gz"
+        mode: '0644'
+        validate_certs: false
+        timeout: 180
+
+    - name: Extract etcd tarball
+      ansible.builtin.unarchive:
+        src: "{{ etcdctl_temp_dir.path }}/etcd.tar.gz"
+        dest: "{{ etcdctl_temp_dir.path }}"
+        remote_src: yes
+        creates: "{{ etcdctl_temp_dir.path }}/etcd-{{ etcd_release_version }}-{{ etcd_release_os }}-{{ etcd_release_arch }}/etcdctl"
+
+    - name: Install etcdctl binary to versioned location
+      ansible.builtin.copy:
+        src: "{{ etcdctl_temp_dir.path }}/etcd-{{ etcd_release_version }}-{{ etcd_release_os }}-{{ etcd_release_arch }}/etcdctl"
+        dest: "{{ kubernetes_binary_dir }}/{{ etcdctl_versioned_binary_name }}"
+        mode: '0755'
+        remote_src: yes
+
+    - name: Remove temporary directory
+      ansible.builtin.file:
+        path: "{{ etcdctl_temp_dir.path }}"
+        state: absent
+
+- name: Set up alternatives for etcdctl binary
+  community.general.alternatives:
+    name: "etcdctl"
+    path: "{{ kubernetes_binary_dir }}/{{ etcdctl_versioned_binary_name }}"
+    link: "{{ kubernetes_binary_link_path }}/etcdctl"
+    priority: "{{ ansible_date_time.epoch | int }}"
+    state: selected
+
+- name: Verify etcdctl installation
+  ansible.builtin.command: "{{ kubernetes_binary_link_path }}/etcdctl version"
+  register: etcdctl_version_check
+  changed_when: false
+
+- name: Display installed etcdctl version
+  ansible.builtin.debug:
+    msg: 
+      - "Installed etcdctl version: {{ etcdctl_version_check.stdout_lines[0] }}"

@@ -3,35 +3,65 @@
 
 - name: Install prerequisites
   ansible.builtin.include_tasks: common/prerequisites.yml
+  tags:
+    - k8s
+    - k8s-common
 
-- name: Find the hostname where kubernetes_cluster_init_master is true
+- name: Gather facts from all cluster nodes
+  ansible.builtin.setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  loop: "{{ groups['k8s_master'] + groups['k8s_worker'] }}"
+  run_once: true
+  tags:
+    - k8s
+    - k8s-common
+
+- name: Get current node hostname for consistent node naming
+  ansible.builtin.command: hostname
+  register: node_hostname_result
+  become: true
+  tags:
+    - k8s
+    - k8s-common
+
+- name: Set node hostname
   ansible.builtin.set_fact:
-    init_master_candidates: "{{ init_master_candidates | default([]) + [inventory_hostname] }}"
-  when: 
-    - kubernetes_cluster_init_master is defined
-    - kubernetes_cluster_init_master | bool
+    node_hostname: "{{ node_hostname_result.stdout }}"
+  tags:
+    - k8s
+    - k8s-common
+
+- name: Find init master node directly
+  ansible.builtin.set_fact:
+    init_master_node: >-
+      {{
+        groups['all'] | 
+        map('extract', hostvars) |
+        selectattr('kubernetes_cluster_init_master', 'defined') |
+        selectattr('kubernetes_cluster_init_master', 'equalto', true) |
+        map(attribute='inventory_hostname') |
+        list | first | default(groups['k8s_master'][0])
+      }}
   run_once: true
   delegate_to: localhost
   delegate_facts: true
-
-- name: Set init master node fact on localhost
-  ansible.builtin.set_fact:
-    init_master_node: "{{ hostvars | dict2items | 
-                         selectattr('value.init_master_candidates', 'defined') | 
-                         map(attribute='key') | 
-                         first | 
-                         default(groups['k8s_master'] | first) }}"
-  run_once: true
-  delegate_to: localhost
-  delegate_facts: true
+  tags:
+    - k8s
+    - k8s-common
 
 - name: Distribute init master node fact to all hosts
   ansible.builtin.set_fact:
     init_master_node: "{{ hostvars['localhost'].init_master_node }}"
+  tags:
+    - k8s
+    - k8s-common
 
-
-# check node already joined cluster
-- name: Check node joined status
+- name: Check if node already joined cluster
+  tags:
+    - k8s
+    - k8s-common
+    - k8s-join-status
   block:
     - name: Check node has already joined the cluster
       ansible.builtin.stat:
@@ -50,13 +80,20 @@
 # Setup Kubernetes Binaries
 - name: Setup Kubernetes Binaries
   ansible.builtin.include_tasks: "binary/main.yml"
+  tags:
+    - k8s
+    - k8s-binary
 
 
 # Initialize Kubernetes cluster
 - name: Kubernetes cluster initialization
+  tags:
+    - k8s
+    - k8s-init
   when:
     - inventory_hostname == init_master_node
     - not node_already_joined
+  run_once: true
   block:
     - name: Pull required container images
       ansible.builtin.include_tasks: kubeadm/pull.yml
@@ -86,12 +123,6 @@
     - name: Save image list
       ansible.builtin.include_tasks: kubeadm/image.yml
 
-    # - name: Deploy traffic management resource to cluster
-    #   ansible.builtin.include_tasks: kubeadm/traffic/{{ kubernetes_traffic_type }}/{{ kubernetes_traffic_deployment_type }}.yml
-
-    # - name: Deploy metric-server to cluster
-    #   ansible.builtin.include_tasks: kubeadm/metric_server/{{ kubernetes_metric_server_deployment_type }}.yml
-
     - name: Initialize Kubernetes cluster
       ansible.builtin.include_tasks: kubeadm/marker/init.yml
 
@@ -101,9 +132,13 @@
 
 # Join nodes to Kubernetes cluster
 - name: Join nodes to Kubernetes cluster
+  tags:
+    - k8s
+    - k8s-join
   when:
     - inventory_hostname != init_master_node
     - not node_already_joined
+    - node_hostname not in (kubernetes_retired_nodes | default([]) | map(attribute='hostname') | list)
   block:
     - name: Generate join token on init master node for other nodes to join
       ansible.builtin.include_tasks: kubeadm/token.yml
@@ -130,7 +165,12 @@
 
 # Check Cluster version and upgrade requirements
 - name: Check cluster version and upgrade requirements
-  when: node_already_joined
+  tags:
+    - k8s
+    - k8s-upgrade
+  when:
+    - node_already_joined
+    - node_hostname not in (kubernetes_retired_nodes | default([]) | map(attribute='hostname') | list)
   block:
     - name: Check if version file exists
       ansible.builtin.stat:
@@ -177,9 +217,13 @@
 # https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
 # https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/
 - name: Upgrade Kubernetes cluster
+  tags:
+    - k8s
+    - k8s-upgrade
   when:
     - node_already_joined
     - upgrade_needed | default(false)
+    - node_hostname not in (kubernetes_retired_nodes | default([]) | map(attribute='hostname') | list)
   block:
     - name: Get hostname of nodes
       ansible.builtin.command: hostname
@@ -238,3 +282,49 @@
       ansible.builtin.include_tasks: kubeadm/upgrade/post_tasks.yml
       when: inventory_hostname == init_master_node
       run_once: true
+
+
+# Remove Node from Cluster
+- name: Remove node from cluster
+  tags:
+    - k8s
+    - k8s-remove
+  when:
+    - inventory_hostname == init_master_node
+  block:
+    - name: Remove nodes from Kubernetes cluster
+      ansible.builtin.include_tasks: kubeadm/remove.yml
+      loop: "{{ kubernetes_retired_nodes}}"
+      loop_control: 
+        loop_var: node
+      when:
+        - kubernetes_retired_nodes is defined
+        - kubernetes_retired_nodes | length > 0
+
+
+# Deploy Helm Charts
+- name: Deploy Helm Charts
+  tags:
+    - helm
+    - helm-deploy
+  when:
+    - inventory_hostname == init_master_node
+  block:
+    - name: Deploy Helm-based components
+      ansible.builtin.include_tasks: kubeadm/helm/main.yml
+      run_once: true
+      when: helm_charts | length > 0
+
+
+# Notift kubelet restart
+- name: Notify kubelet restart after kubelet-csr-approver installation
+  tags:
+    - helm
+    - helm-restart-kubelet
+  ansible.builtin.debug:
+    msg: "Triggering kubelet restart due to kubelet-csr-approver installation"
+  notify: restart kubelet
+  when: 
+    - helm_charts | selectattr('chart_name', 'equalto', 'kubelet-csr-approver') | list | length > 0
+    - helm_charts | selectattr('chart_name', 'equalto', 'kubelet-csr-approver') | selectattr('state', 'equalto', 'present') | list | length > 0
+    - node_hostname not in (kubernetes_retired_nodes | default([]) | map(attribute='hostname') | list)

@@ -31,7 +31,7 @@
 
 - name: set join command for other master nodes
   ansible.builtin.set_fact:
-    master_node_join_command: "{{ join_command_result.stdout_lines[-1] }} --certificate-key {{ hostvars['localhost'].master_cert_key }} --control-plane"
+    master_node_join_command: "{{ join_command_result.stdout_lines[-1] }} --certificate-key {{ hostvars['localhost'].master_cert_key }} --control-plane --node-name {{ node_hostname }}"
   when:
     - inventory_hostname != init_master_node
     - inventory_hostname in groups['k8s_master']
@@ -45,7 +45,7 @@
 
 - name: set join command for worker nodes
   ansible.builtin.set_fact:
-    worker_node_join_command: "{{ join_command_result.stdout_lines[-1] }}"
+    worker_node_join_command: "{{ join_command_result.stdout_lines[-1] }} --node-name {{ node_hostname }}"
   when: inventory_hostname in groups['k8s_worker']
 
 - name: display join command for worker nodes

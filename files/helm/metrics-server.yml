@@ -1,0 +1,28 @@
+## Ref: https://artifacthub.io/packages/helm/metrics-server/metrics-server
+
+containerPort: 4443
+
+defaultArgs:
+  - --cert-dir=/tmp
+  - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+  - --kubelet-use-node-status-port
+  - --metric-resolution=15s
+  - --kubelet-insecure-tls
+  - --secure-port=4443
+  - --tls-cert-file=
+  - --tls-private-key-file=
+
+metrics:
+  enabled: true
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+
+tls:
+  type: "metrics-server"
+  clusterDomain: cluster.local

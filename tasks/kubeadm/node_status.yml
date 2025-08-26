@@ -1,19 +1,8 @@
 ---
 
-- name: get hostname of current node
-  ansible.builtin.command: hostname
-  register: node_hostname
-  become: true
-
 - name: wait for current node to become ready
   ansible.builtin.shell: |
-    READY_STATUS=$(kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')
-    UNSCHEDULABLE=$(kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.spec.unschedulable}')
-    if [[ "$READY_STATUS" == "True" && "$UNSCHEDULABLE" != "true" ]]; then
-      echo "True"
-    else
-      echo "False"
-    fi
+    kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   register: node_status

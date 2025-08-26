@@ -13,13 +13,17 @@ kubernetes_kubeadm_delay: 30
 kubernetes_kubeadm_retry: 30
 kubernetes_kubeadm_upgrade_drain_timeout: "600s"
 
-kubernetes_cluster_init_config_path: /tmp
-kubernetes_cluster_init_config_local_advertise_address: 172.16.3.101
+kubernetes_dir: /etc/kubernetes
+kubernetes_kubeconfig_path: "{{ kubernetes_dir }}/admin.conf"
+
+# Dynamic IP address of the init master node - resolved at template rendering time
+kubernetes_cluster_init_config_local_advertise_address: "{{ hostvars[init_master_node]['ansible_default_ipv4']['address'] }}"
 kubernetes_cluster_init_config_local_advertise_port: 6443
+kubernetes_cluster_init_config_path: /tmp
 
 # This is the endpoint of the control plane node when using External Loadbalacer for Multi Master Setup
 # By default, it is the same as the local advertise address and port for Single Master Setup
-kubernetes_cluster_config_control_plane_endpoint_url: 172.16.3.101
+kubernetes_cluster_config_control_plane_endpoint_url: "{{ hostvars[init_master_node]['ansible_default_ipv4']['address'] }}"
 kubernetes_cluster_config_control_plane_endpoint_port: 6443
 
 kubernetes_cluster_config_kubernetes_version: 1.30.11
@@ -33,6 +37,9 @@ kubernetes_cluster_config_api_server_extra_args:
   - RBAC
 
 kubernetes_cluster_config_api_server_timeout_for_controlplane_seconds: "4m0s"
+
+kubernetes_cluster_config_additional_sans: []
+
 kubernetes_cluster_config_controller_manager_extra_args:
   bind-address: "0.0.0.0"
   node-monitor-period: "5s"
@@ -51,18 +58,12 @@ kubernetes_cluster_proxy_ipvs_strict_arp: true
 
 kubernetes_cluster_pod_network_type: calico
 
-kubernetes_calico_version: v3.30.0
-kubernetes_calico_deployment_type: medium                     # "medium" for less than 50 nodes, "large" for more than 50 nodes
-
-kubernetes_metric_server_version: v0.7.2
-kubernetes_metric_server_deployment_type: high-availability   # "high-availability" for deploying metric server in high-availability mode, "single" for deploying in single node mode
-
-kubernetes_traffic_type: gateway-api              # Traffic Type: "gateway-api" or "ingress-nginx" is the traffic type
-kubernetes_traffic_deployment_type: standard      # Deployment Type: "standard", "minimal", "complete" etc etc.
-kubernetes_traffic_deployment_version: v1.3.0
-
-kubernetes_traffic_deployment_resource: nginx-gateway-fabric
-kubernetes_traffic_deployment_resource_version: v1.6.2
+kubernetes_calico_version: v3.30.0                            # Ref: https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises
+kubernetes_calico_deployment_type: small                      # "small" for 50 nodes or less, "large" for more than 50 nodes
+kubernetes_calico_base_url: "https://raw.githubusercontent.com/projectcalico/calico"
+kubernetes_calico_manifests:
+  small: "calico.yaml"                                        # Standard Calico manifest for ≤50 nodes
+  large: "calico-typha.yaml"                                  # Calico with Typha for >50 nodes
 
 kubernetes_kubelet_config_path: /var/lib/kubelet
 kubernetes_kubelet_authentication_anonymous_enabled: false
@@ -132,3 +133,68 @@ kubernetes_release_arch: amd64
 kubernetes_release_base_url: https://dl.k8s.io/release
 kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
 kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases{% if kubernetes_cluster_config_kubernetes_version == 'latest' %}/latest{% else %}?per_page=1{% endif %}"
+
+
+kubernetes_retired_nodes: []
+  # - hostname: k8s-master-01
+  #   ip: 172.16.3.101
+  # - hostname: k8s-master-03
+  #   ip: 172.16.3.103
+  # - hostname: k8s-worker-01
+  #   ip: 172.16.3.111
+
+
+# etcd/etcdctl Configuration  
+etcd_install_enabled: true                      # Enable/disable etcd/etcdctl installation
+etcd_version: v3.5.22                           # etcd version to install, 'latest' for latest stable or specific version like 'v3.5.15'
+etcd_release_arch: amd64
+etcd_release_os: linux
+etcd_release_version: "{{ etcd_version if etcd_version != 'latest' else 'latest' }}"
+etcd_release_upstream_url: "https://api.github.com/repos/etcd-io/etcd/releases{% if etcd_version == 'latest' %}/latest{% else %}?per_page=100{% endif %}"
+
+
+# Helm Configuration
+helm_install_enabled: true                      # Enable/disable Helm installation
+helm_version: v3.16.0                           # Helm version to install, 'latest' for latest stable or specific version like 'v3.12.0'
+helm_release_arch: amd64
+helm_release_os: linux
+helm_release_version: "{{ helm_version if helm_version != 'latest' else 'latest' }}"
+helm_release_upstream_url: "https://api.github.com/repos/helm/helm/releases{% if helm_version == 'latest' %}/latest{% else %}?per_page=100{% endif %}"
+
+
+# Helm Charts Configuration
+# Enable/disable individual Helm chart installations via the enabled flag
+helm_charts_wait_timeout: 300s
+helm_charts:
+  # Kubelet CSR Approver - Automatically approve CSRs for kubelet certificates
+  - chart_name: kubelet-csr-approver
+    chart_ref: kubelet-csr-approver/kubelet-csr-approver
+    chart_url: https://postfinance.github.io/kubelet-csr-approver
+    chart_version: "1.2.10"                  # Chart version, leave empty for latest
+    release_namespace: "kube-system"
+    values_files:
+      - "/tmp/kubelet-csr-approver-values.yml"
+    state: present
+
+  # Metrics Server - Provides resource usage metrics
+  - chart_name: metrics-server
+    chart_ref: metrics-server/metrics-server
+    chart_url: https://kubernetes-sigs.github.io/metrics-server/
+    chart_version: "3.13.0"                 # Chart version, leave empty for latest
+    release_namespace: "kube-system"
+    values_files:
+      - "/tmp/metrics-server-values.yml"
+    state: present
+
+  # NGINX Ingress Controller - Manages ingress traffic
+  - chart_name: ingress-nginx
+    chart_ref: ingress-nginx/ingress-nginx
+    chart_url: https://kubernetes.github.io/ingress-nginx
+    chart_version: "4.13.1"                 # Chart version, leave empty for latest
+    release_namespace: "ingress-nginx"       # Changed to dedicated namespace
+    create_namespace: true
+    values_files:
+      - "/tmp/ingress-nginx-values.yml"
+    state: present
+
+helm_charts_additional_repositories: []
