@@ -7,7 +7,7 @@
   block:
     - name: Query Kubernetes version from GitHub
       ansible.builtin.uri:
-        url: "{{ kubernetes_release_upstream_url }}"
+        url: "{{ kubernetes_release_upstream_url }}{% if kubernetes_cluster_config_kubernetes_version == 'latest' %}/latest{% else %}?per_page=1{% endif %}"
         return_content: yes
         validate_certs: no
         timeout: 15

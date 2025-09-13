@@ -131,8 +131,7 @@ kubernetes_release_version: "v{{ kubernetes_cluster_config_kubernetes_version }}
 kubernetes_release_arch: amd64
 
 kubernetes_release_base_url: https://dl.k8s.io/release
-kubernetes_release_download_url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}"
-kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases{% if kubernetes_cluster_config_kubernetes_version == 'latest' %}/latest{% else %}?per_page=1{% endif %}"
+kubernetes_release_upstream_url: "https://api.github.com/repos/kubernetes/kubernetes/releases"
 
 
 kubernetes_retired_nodes: []

@@ -18,14 +18,15 @@
 
 - name: Fetch SHA256 checksum for {{ binary_item }} from remote
   ansible.builtin.uri:
-    url: "{{ kubernetes_release_download_url }}/{{ binary_item }}.sha256"
+    url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}/{{ binary_item }}.sha256"
     return_content: yes
+    validate_certs: false
   register: sha256_remote
   when: not binary_stat.stat.exists or binary_stat.stat.checksum is not defined
 
 - name: Download Kubernetes binary with fetched checksum validation for {{ binary_item }}
   ansible.builtin.get_url:
-    url: "{{ kubernetes_release_download_url }}/{{ binary_item }}"
+    url: "{{ kubernetes_release_base_url }}/{{ kubernetes_release_version }}/bin/linux/{{ kubernetes_release_arch }}/{{ binary_item }}"
     dest: "{{ kubernetes_binary_dir }}/{{ versioned_binary_name }}"
     checksum: "sha256:{{ sha256_remote.content | default('') | trim }}"
     mode: '0755'
