@@ -225,11 +225,6 @@
     - upgrade_needed | default(false)
     - node_hostname not in (kubernetes_retired_nodes | default([]) | map(attribute='hostname') | list)
   block:
-    - name: Get hostname of nodes
-      ansible.builtin.command: hostname
-      register: node_hostname
-      become: true
-
     - name: Check cluster health before upgrade
       delegate_to: "{{ init_master_node }}"
       when: inventory_hostname in groups['k8s_master']
