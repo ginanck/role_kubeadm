@@ -2,7 +2,7 @@
 
 - name: wait for current node to become ready
   ansible.builtin.shell: |
-    kubectl get node {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+    kubectl get node {{ node_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   register: node_status
@@ -28,5 +28,5 @@
 
 - name: display current node status
   ansible.builtin.debug:
-    msg: "Node {{ node_hostname.stdout }} {{ status_message }} and in Ready state"
+    msg: "Node {{ node_hostname }} {{ status_message }} and in Ready state"
   when: node_status.stdout == "True"
