@@ -5,7 +5,7 @@
   block:
     - name: Drain worker node
       ansible.builtin.command: >
-        kubectl drain {{ node_hostname.stdout }} 
+        kubectl drain {{ node_hostname }} 
         --ignore-daemonsets 
         --delete-emptydir-data 
         --force 
@@ -34,12 +34,12 @@
         daemon_reload: true
 
     - name: Uncordon worker node
-      ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+      ansible.builtin.command: kubectl uncordon {{ node_hostname }}
       delegate_to: "{{ init_master_node }}"
       register: uncordon_worker_result
 
     - name: Wait for worker to be fully ready
-      ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      ansible.builtin.command: kubectl get nodes {{ node_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
       delegate_to: "{{ init_master_node }}"
       register: worker_status
       retries: "{{ kubernetes_kubeadm_retry }}"

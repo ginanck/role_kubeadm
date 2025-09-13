@@ -1,6 +1,10 @@
 ---
 
-- name: wait for current node to become ready
+- name: Display node hostname
+  ansible.builtin.debug:
+    msg: "Node hostname is {{ node_hostname }}"
+
+- name: Wait for current node to become ready
   ansible.builtin.shell: |
     kubectl get node {{ node_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   environment:
@@ -26,7 +30,7 @@
   become: true
   delegate_to: "{{ init_master_node }}"
 
-- name: display current node status
+- name: Display current node status
   ansible.builtin.debug:
     msg: "Node {{ node_hostname }} {{ status_message }} and in Ready state"
   when: node_status.stdout == "True"

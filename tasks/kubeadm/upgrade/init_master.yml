@@ -2,7 +2,7 @@
 
 - name: drain init master node
   ansible.builtin.command: >
-    kubectl drain {{ node_hostname.stdout }} 
+    kubectl drain {{ node_hostname }} 
     --ignore-daemonsets 
     --delete-emptydir-data 
     --force 
@@ -40,4 +40,4 @@
     daemon_reload: true
 
 - name: uncordon init master node
-  ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+  ansible.builtin.command: kubectl uncordon {{ node_hostname }}

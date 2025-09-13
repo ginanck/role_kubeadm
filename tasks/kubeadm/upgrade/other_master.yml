@@ -2,7 +2,7 @@
 
 - name: Drain other master node
   ansible.builtin.command: >
-    kubectl drain {{ node_hostname.stdout }} 
+    kubectl drain {{ node_hostname }} 
     --ignore-daemonsets 
     --delete-emptydir-data 
     --force 
@@ -27,12 +27,12 @@
     daemon_reload: true
 
 - name: Uncordon other master node
-  ansible.builtin.command: kubectl uncordon {{ node_hostname.stdout }}
+  ansible.builtin.command: kubectl uncordon {{ node_hostname }}
   delegate_to: "{{ init_master_node }}"
   register: uncordon_other_master_result
 
 - name: Wait for other master to be fully ready
-  ansible.builtin.command: kubectl get nodes {{ node_hostname.stdout }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  ansible.builtin.command: kubectl get nodes {{ node_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
   delegate_to: "{{ init_master_node }}"
   register: other_master_status
   retries: "{{ kubernetes_kubeadm_retry }}"
