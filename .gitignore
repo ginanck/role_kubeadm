@@ -48,3 +48,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+
+# Shared configuration files (managed by pre-commit)
+.config/
+
+# Shared configuration files (managed by pre-commit)
+.configs/
