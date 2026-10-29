@@ -54,3 +54,6 @@ Thumbs.db
 
 # Shared configuration files (managed by pre-commit)
 .configs/
+
+# ansible-lint cache
+.ansible/*
