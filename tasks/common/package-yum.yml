@@ -1,7 +1,6 @@
 ---
+# Compatibility entry point for hosts whose ansible_pkg_mgr is 'yum'.
+# The deprecated yum module is gone; delegate to the dnf task set.
 
-- name: Install prerequisites (RedHat family with yum)
-  ansible.builtin.yum:
-    name: "{{ kubernetes_prerequisite_packages }}"
-    state: present
-    update_cache: yes
+- name: Apply the dnf task set for yum-based hosts
+  ansible.builtin.include_tasks: package-dnf.yml

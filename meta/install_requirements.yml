@@ -1,0 +1,16 @@
+---
+
+roles:
+  - src: https://github.com/ginanck/role_base.git
+    version: master
+
+collections:
+  # Required by the molecule docker driver
+  - name: community.docker
+    version: 4.8.1
+
+  - name: community.general
+    version: 6.6.1
+
+  - name: kubernetes.core
+    version: 5.3.0

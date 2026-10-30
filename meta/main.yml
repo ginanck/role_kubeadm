@@ -1,4 +1,6 @@
 galaxy_info:
+  role_name: role_kubeadm
+  namespace: gkorkmaz
   author: Gorkem Korkmaz
   description: this role is for installing kubernetes with kubeadm
   company: ""
